@@ -3,20 +3,29 @@
 ROOT=`git rev-parse --show-toplevel`
 
 _repetition=5
-_prompts=$ROOT/prompts
-_models=(
-    gpt-4o-mini
-)
+_default_model=gpt-4o-mini
 
-while getopts 'o:n:c:h' option; do
+while getopts 'o:n:p:d:g:m:ch' option; do
     case $option in
         o) _output=$OPTARG ;;
 	n) _repetition=$OPTARG ;;
+	p) _prompts=$OPTARG ;;
+	d) _documents=$OPTARG ;;
+	g) _gt=$OPTARG ;;
 	c) _cull=1 ;;
+	m) _models=( ${_models[@]} $OPTARG ) ;;
         h)
             cat <<EOF
 Usage: $0
- -o Output directory
+ -o Directory to deposit experiments and results
+ -n Number of times to repeat each judgement (default $_repetition)
+ -p Directory containing system and user prompts. The value provided
+    is expected to contain "system" and "user" subdirectories
+ -d Directory containing documents for the OpenAI vector store
+ -c Whether to cull user prompts that do not have a corresponding
+    ground truth answer
+ -g Directory containing reference responses
+ -m OpenAI model. Specify multiple times to test multiple models
 EOF
             exit 0
             ;;
@@ -26,6 +35,10 @@ EOF
             ;;
     esac
 done
+
+if [ ! $_models ]; then
+    _models=( $_default_model )
+fi
 
 #
 #
@@ -40,7 +53,7 @@ python $ROOT/src/prompt/build.py \
        --model $models \
        --user-prompts $_prompts/user \
        --system-prompts $_prompts/system \
-       --documents $ROOT/docs \
+       --documents $_documents \
        --repetition $_repetition \
        --extra-info git:$_git \
        --output $e_out
@@ -48,7 +61,7 @@ python $ROOT/src/prompt/build.py \
 if [ $_cull ]; then
     python $ROOT/src/prompt/cull.py \
 	   --experiments $e_out \
-	   --ground-truth $ROOT/golden
+	   --ground-truth $_gt
 done
 
 #
@@ -61,7 +74,7 @@ for i in $e_out/*; do
     out=$r_out/`basename $i`
     cat <<EOF
 python $ROOT/src/prompt/run.py \
-    --document-root $ROOT/docs \
+    --document-root $_documents \
     --prompt-root $_prompts < $i > $out
 EOF
 done | parallel --will-cite --line-buffer --delay 4

@@ -5,14 +5,19 @@ ROOT=`git rev-parse --show-toplevel`
 _repetition=3
 _prompts=$ROOT/prompts
 
-while getopts 'i:o:n:h' option; do
+while getopts 'i:o:n:g:h' option; do
     case $option in
 	i) _input=$OPTARG ;;
         o) _output=$OPTARG ;;
+	g) _gt=$OPTARG ;;
+	n) _repetition=$OPTARG ;;
         h)
             cat <<EOF
 Usage: $0
- -o Output directory
+ -i Directory containing LLM responses
+ -o Directory to deposit experiments and results
+ -g Directory containing reference responses
+ -n Number of times to repeat each judgement (default $_repetition)
 EOF
             exit 0
             ;;
@@ -26,13 +31,13 @@ done
 #
 #
 #
-e_out=$_output/evals
+e_out=$_output/experiments
 mkdir --parents $e_out
 
 python $ROOT/src/evaluate/build.py \
        --user-prompt $_prompts/evaluate/user \
        --system-prompt $_prompts/evaluate/system \
-       --ground-truth $ROOT/golden \
+       --ground-truth $_gt \
        --repetition $_repetition \
        --predictions $_input \
        --output $e_out
@@ -40,7 +45,7 @@ python $ROOT/src/evaluate/build.py \
 #
 #
 #
-r_out=$_output/compares
+r_out=$_output/results
 mkdir --parents	$r_out
 
 for i in $e_out/*; do
