@@ -12,7 +12,6 @@ while getopts 'o:n:p:d:g:m:ch' option; do
 	p) _prompts=$OPTARG ;;
 	d) _documents=$OPTARG ;;
 	g) _gt=$OPTARG ;;
-	c) _cull=1 ;;
 	m) _models=( ${_models[@]} $OPTARG ) ;;
         h)
             cat <<EOF
@@ -22,9 +21,9 @@ Usage: $0
  -p Directory containing system and user prompts. The value provided
     is expected to contain "system" and "user" subdirectories
  -d Directory containing documents for the OpenAI vector store
- -c Whether to cull user prompts that do not have a corresponding
-    ground truth answer
- -g Directory containing reference responses
+ -g Directory containing reference responses. If this option is
+    provided only user prompts that have a corresponding
+    ground truth answer will be run
  -m OpenAI model. Specify multiple times to test multiple models
 EOF
             exit 0
@@ -58,7 +57,7 @@ python $ROOT/src/prompt/build.py \
        --extra-info git:$_git \
        --output $e_out
 
-if [ $_cull ]; then
+if [ $_gt ]; then
     python $ROOT/src/prompt/cull.py \
 	   --experiments $e_out \
 	   --ground-truth $_gt
