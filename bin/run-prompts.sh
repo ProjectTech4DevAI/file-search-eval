@@ -61,7 +61,7 @@ if [ $_gt ]; then
     python $ROOT/src/prompt/cull.py \
 	   --experiments $e_out \
 	   --ground-truth $_gt
-done
+fi
 
 #
 #
