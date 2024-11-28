@@ -1,27 +1,10 @@
 import sys
-import csv
-import json
-import logging
-import functools as ft
-from typing import Union
 from pathlib import Path
 from argparse import ArgumentParser
-from dataclasses import dataclass, fields
-from multiprocessing import Pool
 
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-
-@dataclass
-class GroupKey:
-    user: str
-    system: str
-
-def consolidate(df):
-    by = [ x.name for x in fields(GroupKey) ]
-    for (i, g) in df.groupby(by, sort=False):
-        df['score'].mean()
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
