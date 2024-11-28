@@ -1,0 +1,11 @@
+Compare the generated RESPONSE to the REFERENCE answer. Evaluate if
+the generated response correctly conveys the same meaning, even if the
+wording is different.
+
+<RESPONSE>$response</RESPONSE>
+
+<REFERENCE>$reference</REFERENCE>
+
+Score your evaluation on a scale of 1 to 10, with 10 being a response
+that is exactly the same as the reference. Your output should be a
+JSON describing your thoughts and including your score.
