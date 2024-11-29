@@ -52,5 +52,11 @@ if __name__ == '__main__':
     plt.ylabel('User prompt')
     plt.xlim(args.lowest_score - 1, args.highest_score + 1)
     plt.grid(visible=True, axis='both', alpha=0.25, linestyle='dotted')
+    plt.legend(
+        title='System prompt',
+        loc='upper center',
+        bbox_to_anchor=(0.2, 1.12),
+        ncol=2,
+    )
 
     plt.savefig(args.output, bbox_inches='tight')
