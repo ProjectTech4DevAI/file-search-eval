@@ -34,6 +34,6 @@ if __name__ == '__main__':
         messages=config['evaluation'],
         response_format=SimilarityEvaluation,
     )
-    config['judgement'] = response.choices[0].message.parsed.dict()
+    config['judgement'] = response.choices[0].message.parsed.model_dump()
 
     print(json.dumps(config, indent=3))
