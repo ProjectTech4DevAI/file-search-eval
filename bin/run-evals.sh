@@ -3,7 +3,7 @@
 ROOT=`git rev-parse --show-toplevel`
 
 _repetition=3
-_prompts=$ROOT/prompts
+_prompts=$ROOT/docs/prompts
 
 while getopts 'i:o:n:g:h' option; do
     case $option in
