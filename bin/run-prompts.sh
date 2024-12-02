@@ -2,6 +2,8 @@
 
 ROOT=`git rev-parse --show-toplevel`
 
+export PYTHONPATH=$ROOT
+
 _repetition=5
 _default_model=gpt-4o-mini
 

@@ -2,6 +2,8 @@
 
 ROOT=`git rev-parse --show-toplevel`
 
+export PYTHONPATH=$ROOT
+
 _repetition=3
 _prompts=$ROOT/docs/prompts
 
