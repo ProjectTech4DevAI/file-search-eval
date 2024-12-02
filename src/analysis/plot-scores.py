@@ -11,7 +11,7 @@ if __name__ == '__main__':
     arguments.add_argument('--model')
     arguments.add_argument('--output', type=Path)
     arguments.add_argument('--lowest-score', type=int, default=1)
-    arguments.add_argument('--highest-score', type=int, default=10)
+    arguments.add_argument('--highest-score', type=int, default=5)
     args = arguments.parse_args()
 
     #
