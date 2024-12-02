@@ -40,7 +40,12 @@ def func(queue, args):
 
         for r in refitr(gt):
             reference = r.data.read_text()
-            content = prompt.substitute(response=response, reference=reference)
+            content = prompt.substitute(
+                response=response,
+                reference=reference,
+                lower=args.low_score,
+                upper=args.high_score,
+            )
             user = Message('user', content)
 
             record = dict(pr)
@@ -65,6 +70,8 @@ if __name__ == '__main__':
     arguments.add_argument('--predictions', type=Path)
     arguments.add_argument('--output', type=Path)
     arguments.add_argument('--repetition', type=int, default=1)
+    arguments.add_argument('--low-score', type=int, default=1)
+    arguments.add_argument('--high-score', type=int, default=5)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
