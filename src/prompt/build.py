@@ -35,6 +35,7 @@ if __name__ == '__main__':
     arguments.add_argument('--user-prompts', type=Path)
     arguments.add_argument('--system-prompts', type=Path)
     arguments.add_argument('--documents', type=Path)
+    arguments.add_argument('--extra-info', action='append')
     arguments.add_argument('--repetition', type=int, default=1)
     args = arguments.parse_args()
 
@@ -45,7 +46,13 @@ if __name__ == '__main__':
         documents(args.documents),
         range(args.repetition),
     )
+    extra = dict(x.split(':') for x in args.extra_info)
+
     for i in it.product(*conditions):
         e = Experiment(*i)
         Logger.info(e)
-        print(json.dumps(dict(e)))
+
+        config = dict(e)
+        config.update(extra)
+
+        print(json.dumps(config))
