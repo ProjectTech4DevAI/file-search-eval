@@ -15,7 +15,7 @@ def func(incoming, outgoing, gt):
         if target.exists():
             record = config
         else:
-            Logger.warning('No ground truth: %s', experiment.name)
+            Logger.warning('No ground truth: %s', config)
             record = None
 
         outgoing.put(record)
