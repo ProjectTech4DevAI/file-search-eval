@@ -13,7 +13,6 @@ def func(incoming, outgoing, gt):
         config = json.loads(experiment)
         target = gt.joinpath(config['user'])
         if target.exists():
-            Logger.info(experiment.name)
             record = config
         else:
             Logger.warning('No ground truth: %s', experiment.name)
