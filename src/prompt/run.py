@@ -1,13 +1,29 @@
 import sys
 import json
 import time
+import operator as op
 import collections as cl
 from pathlib import Path
 from argparse import ArgumentParser
+from dataclasses import dataclass, astuple
+from multiprocessing import Pool, Queue
 
 from openai import OpenAI, NotFoundError
 
 from mylib import Logger
+
+#
+#
+#
+@dataclass(frozen=True)
+class Resource:
+    assistant: str
+    vector_store: str
+
+@dataclass(frozen=True)
+class Job:
+    resource: Resource
+    config: dict
 
 #
 #
@@ -80,136 +96,212 @@ class VectorStoreCleaner(ResourceCleaner):
 #
 #
 #
-def ls(root, limit):
-    batch = []
+class ResourceCreator:
+    def __init__(self, client, args):
+        self.client = client
+        self.args = args
 
-    for i in root.rglob('*.md'):
-        batch.append(i)
-        if len(batch) >= limit:
+    def __call__(self, config, **kwargs):
+        raise NotImplementedError()
+
+class VectorStoreCreator(ResourceCreator):
+    @staticmethod
+    def ls(root, limit):
+        batch = []
+
+        for i in root.rglob('*.md'):
+            batch.append(i)
+            if len(batch) >= limit:
+                yield batch
+                batch = []
+
+        if batch:
             yield batch
-            batch = []
 
-    if batch:
-        yield batch
+    def __call__(self, config, **kwargs):
+        vector_store = self.client.beta.vector_stores.create()
+        vector_store_cleaner = VectorStoreCleaner(vector_store.id)
+
+        documents = self.args.document_root.joinpath(config['docs'])
+        for paths in self.ls(documents, self.args.upload_batch_size):
+            nfiles = len(paths)
+            Logger.info('Uploading %d', nfiles)
+
+            files = [ x.open('rb') for x in paths ]
+            file_batch = (self
+                          .client
+                          .beta
+                          .vector_stores
+                          .file_batches.upload_and_poll(
+                              vector_store_id=vector_store.id,
+                              files=files,
+                          ))
+            for i in files:
+                i.close()
+
+            if file_batch.file_counts.completed != nfiles:
+                vector_store_cleaner(self.client, self.args.cleanup_attempts)
+                msg = 'Failure "upload_and_poll": uploaded {} of {}'.format(
+                    file_batch.file_counts,
+                    nfiles,
+                )
+                raise IndexError(msg)
+
+        return vector_store.id
+
+class AssistantCreator(ResourceCreator):
+    def __call__(self, config, **kwargs):
+        vector_store_id = kwargs['vector_store']
+        reader = PromptReader(config, self.args.prompt_root)
+
+        assistant = self.client.beta.assistants.create(
+            model=config['model'],
+            instructions=reader('system'),
+            temperature=1e-4,
+            tools=[{
+                'type': 'file_search',
+            }],
+            tool_resources={
+                'file_search': {
+                    'vector_store_ids': [
+                        vector_store_id,
+                    ],
+                },
+            },
+        )
+
+        return assistant.id
 
 #
 #
 #
+class OpenAIResources:
+    _resources = (
+        (AssistantCreator, AssistantCleaner),
+        (VectorStoreCreator, VectorStoreCleaner),
+    )
+
+    def __init__(self, args):
+        self.args = args
+
+        self.client = OpenAI()
+        self.resources = {}
+        (self.a_creator, self.v_creator) = (
+            x(self.client, self.args) for (x, _) in self._resources
+        )
+
+
+    def __enter__(self):
+        self.resources.clear()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        cleaners = list(map(op.itemgetter(1), self._resources))
+
+        for resource in self.resources.values():
+            for (MyCleaner, r) in zip(cleaners, astuple(resource)):
+                cleaner = MyCleaner(r)
+                cleaner(self.client, self.args.cleanup_attempts)
+
+    def __call__(self, fp):
+        for line in fp:
+            config = json.loads(line)
+            docs = config['docs']
+
+            resource = self.resources.get(docs)
+            if resource is None:
+                vector_store = self.v_creator(config)
+                assistant = self.a_creator(config, vector_store=vector_store)
+                resource = Resource(assistant, vector_store)
+
+                self.resources[docs] = resource
+
+            yield Job(resource, config)
+
+#
+#
+#
+def func(incoming, outgoing, args):
+    client = OpenAI()
+
+    while True:
+        job = incoming.get()
+        Logger.info(job)
+
+        #
+        # Send the prompt
+        #
+
+        thread = client.beta.threads.create()
+        reader = PromptReader(job.config, args.prompt_root)
+        message = client.beta.threads.messages.create(
+            thread.id,
+            role='user',
+            content=reader('user'),
+        )
+        run = client.beta.threads.runs.create_and_poll(
+            thread_id=thread.id,
+            assistant_id=job.resource.assistant,
+        )
+
+        if run.status == 'completed':
+            response = client.beta.threads.messages.list(
+                thread_id=thread.id,
+                run_id=run.id,
+            )
+            result = response.data[0].content[0].text.value
+        else:
+            Logger.error('%s %s', job.config, run)
+            result = None
+
+        #
+        # Clean up
+        #
+
+        cleaners = (
+            MessageCleaner(message.id, thread.id),
+            ThreadCleaner(thread.id),
+        )
+        for c in cleaners:
+            c(client, args.cleanup_attempts)
+
+        #
+        # Report the result
+        #
+
+        kwargs = cl.defaultdict(dict)
+        kwargs['response'] = {
+            'date': time.strftime('%c'),
+            'message': result,
+        }
+        assert not any(x in job.config for x in kwargs)
+
+        outgoing.put(dict(job.config, **kwargs))
+
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--prompt-root', type=Path)
     arguments.add_argument('--document-root', type=Path)
     arguments.add_argument('--cleanup-attempts', type=int, default=3)
     arguments.add_argument('--upload-batch-size', type=int, default=20)
+    arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
-    #
-    # Setup
-    #
-
-    config = json.load(sys.stdin)
-    Logger.info(
-        ' '.join(str(config.get(x)) for x in ('system', 'user', 'sequence'))
-    )
-    reader = PromptReader(config, args.prompt_root)
-    client = OpenAI()
-
-    #
-    # Create the vector store
-    #
-
-    vector_store = client.beta.vector_stores.create()
-    vector_store_cleaner = VectorStoreCleaner(vector_store.id)
-
-    documents = args.document_root.joinpath(config['docs'])
-    for paths in ls(documents, args.upload_batch_size):
-        nfiles = len(paths)
-        Logger.info('Uploading %d', nfiles)
-
-        files = [ x.open('rb') for x in paths ]
-        file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-            vector_store_id=vector_store.id,
-            files=files,
-        )
-        for i in files:
-            i.close()
-
-        if file_batch.file_counts.completed != nfiles:
-            vector_store_cleaner(client, args.cleanup_attempts)
-            raise IndexError(
-                'Failure "upload_and_poll": uploaded %d of %d',
-                file_batch.file_counts,
-                nfiles,
-            )
-
-    #
-    # Create the assistant
-    #
-
-    assistant = client.beta.assistants.create(
-        model=config['model'],
-        instructions=reader('system'),
-        temperature=1e-4,
-        tools=[{
-            'type': 'file_search',
-        }],
-        tool_resources={
-            'file_search': {
-                'vector_store_ids': [
-                    vector_store.id,
-                ],
-            },
-        },
+    incoming = Queue()
+    outgoing = Queue()
+    initargs = (
+        outgoing,
+        incoming,
+        args,
     )
 
-    #
-    # Send the prompt
-    #
+    with Pool(args.workers, func, initargs):
+        with OpenAIResources(args) as resources:
+            jobs = 0
+            for i in resources(sys.stdin):
+                outgoing.put(i)
+                jobs += 1
 
-    thread = client.beta.threads.create()
-    message = client.beta.threads.messages.create(
-        thread.id,
-        role='user',
-        content=reader('user'),
-    )
-    run = client.beta.threads.runs.create_and_poll(
-        thread_id=thread.id,
-        assistant_id=assistant.id,
-    )
-
-    if run.status == 'completed':
-        response = client.beta.threads.messages.list(
-            thread_id=thread.id,
-            run_id=run.id,
-        )
-        result = response.data[0].content[0].text.value
-    else:
-        Logger.error('%s %s', config, run)
-        result = None
-
-    #
-    # Clean up
-    #
-
-    cleaners = (
-        MessageCleaner(message.id, thread.id),
-        ThreadCleaner(thread.id),
-        AssistantCleaner(assistant.id),
-        vector_store_cleaner,
-    )
-    for c in cleaners:
-        c(client, args.cleanup_attempts)
-
-    #
-    # Print the result
-    #
-
-    kwargs = cl.defaultdict(dict)
-    kwargs['response'] = {
-        'date': time.strftime('%c'),
-        'message': result,
-    }
-    assert not any(x in config for x in kwargs)
-    config.update(kwargs)
-
-    print(json.dumps(config, indent=3))
+            for _ in range(jobs):
+                result = incoming.get()
+                print(json.dumps(result))
