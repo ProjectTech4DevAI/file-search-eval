@@ -37,7 +37,7 @@ if __name__ == '__main__':
     with Pool(args.workers, func, initargs):
         jobs = 0
         for i in sys.stdin:
-            queue.put(i)
+            outgoing.put(i)
             jobs += 1
 
         for _ in range(jobs):
