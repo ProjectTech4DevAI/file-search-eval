@@ -7,9 +7,8 @@ export PYTHONPATH=$ROOT
 _repetition=5
 _default_model=gpt-4o-mini
 
-while getopts 'o:n:p:d:g:m:e:ch' option; do
+while getopts 'n:p:d:g:m:e:ch' option; do
     case $option in
-        o) _output=$OPTARG ;;
 	n) _repetition=$OPTARG ;;
 	p) _prompts=$OPTARG ;;
 	d) _documents=$OPTARG ;;
@@ -19,7 +18,6 @@ while getopts 'o:n:p:d:g:m:e:ch' option; do
         h)
             cat <<EOF
 Usage: $0
- -o Directory to deposit experiments and results
  -n Number of times to repeat each judgement (default $_repetition)
  -p Directory containing system and user prompts. The value provided
     is expected to contain "system" and "user" subdirectories
