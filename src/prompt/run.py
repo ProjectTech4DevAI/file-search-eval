@@ -2,29 +2,11 @@ import sys
 import json
 import time
 import logging
-import functools as ft
 import collections as cl
 from pathlib import Path
 from argparse import ArgumentParser
 
 from openai import OpenAI, NotFoundError
-
-#
-#
-#
-@ft.singledispatch
-def retrieve(path):
-    raise TypeError(type(path))
-
-@retrieve.register
-def _(path: Path):
-    for i in path.iterdir():
-        logging.warning(i)
-        yield i.open('rb')
-
-@retrieve.register
-def _(path: str):
-    return retrieve(Path(path))
 
 #
 #
@@ -97,11 +79,27 @@ class VectorStoreCleaner(ResourceCleaner):
 #
 #
 #
+def ls(root, limit):
+    batch = []
+
+    for i in root.rglob('*.md'):
+        batch.append(i)
+        if len(batch) >= limit:
+            yield batch
+            batch = []
+
+    if batch:
+        yield batch
+
+#
+#
+#
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--prompt-root', type=Path)
     arguments.add_argument('--document-root', type=Path)
     arguments.add_argument('--cleanup-attempts', type=int, default=3)
+    arguments.add_argument('--upload-batch-size', type=int, default=20)
     args = arguments.parse_args()
 
     #
@@ -112,10 +110,7 @@ if __name__ == '__main__':
     logging.critical(
         ' '.join(str(config.get(x)) for x in ('system', 'user', 'sequence'))
     )
-
     reader = PromptReader(config, args.prompt_root)
-    documents = args.document_root.joinpath(config['docs'])
-
     client = OpenAI()
 
     #
@@ -125,20 +120,26 @@ if __name__ == '__main__':
     vector_store = client.beta.vector_stores.create()
     vector_store_cleaner = VectorStoreCleaner(vector_store.id)
 
-    file_streams = list(retrieve(documents))
-    file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-        vector_store_id=vector_store.id,
-        files=file_streams,
-    )
+    documents = args.document_root.joinpath(config['docs'])
+    for paths in ls(documents, args.upload_batch_size):
+        nfiles = len(paths)
+        logging.warning('Uploading %d', nfiles)
 
-    nfiles = len(file_streams)
-    if file_batch.file_counts.completed != nfiles:
-        vector_store_cleaner(client, args.cleanup_attempts)
-        raise IndexError(
-            'Failure "upload_and_poll": uploaded %d of %d',
-            file_batch.file_counts,
-            nfiles,
+        files = [ x.open('rb') for x in paths ]
+        file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=vector_store.id,
+            files=files,
         )
+        for i in files:
+            i.close()
+
+        if file_batch.file_counts.completed != nfiles:
+            vector_store_cleaner(client, args.cleanup_attempts)
+            raise IndexError(
+                'Failure "upload_and_poll": uploaded %d of %d',
+                file_batch.file_counts,
+                nfiles,
+            )
 
     #
     # Create the assistant
