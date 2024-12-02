@@ -30,6 +30,7 @@ if __name__ == '__main__':
     sns.barplot(
         x='score',
         y='system',
+        hue='docs',
         data=df,
         errorbar=('pi', 50),
     )
