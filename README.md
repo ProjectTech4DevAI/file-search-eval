@@ -22,7 +22,13 @@ This repository automates OpenAI File Search testing.
    $> pip install -r requirements.txt
    ```
 
-3. (Optional) Set the Python log level:
+3. Update your Python path
+
+   ```bash
+   $> export PYTHONPATH=`git rev-parse --show-toplevel`:$PYTHONPATH
+   ```
+
+4. (Optional) Set the Python log level:
 
    ```bash
    $> export PYTHONLOGLEVEL=info
