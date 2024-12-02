@@ -1,4 +1,4 @@
-# Veddis Evaluation
+# Document Supported LLM Evaluation
 
 This repository automates OpenAI File Search testing.
 
@@ -86,27 +86,16 @@ are deleted once the query has completed.
 The entire process can be run from `bin/run-prompts.sh` as
 follows. Assuming your environment is setup:
 
-1. Create a directory to store the output
+```bash
+$> ./bin/run-prompts.sh \
+	-p veddis-eval-data/prompts \
+	-d veddis-eval-data/docs \
+	-g veddis-eval-data/responses > responses.jsonl
+```
 
-   ```bash
-   $> mkdir --parents var/responses
-   ```
-
-2. Generate the experiments and begin prompting
-
-   ```bash
-   $> ./bin/run-prompts.sh \
-       -o var/responses \
-	   -p veddis-eval-data/prompts \
-	   -d veddis-eval-data/docs \
-	   -g veddis-eval-data/responses
-   ```
-
-   See `./bin/run-prompts.sh -h` for documentation and other options.
-
-The directory `var/responses` will contain `experiments` and
-`results`, corresponding to experiment configurations and LLM
-responses, respectively.
+This will produce `responses.jsonl`, a JSONL file detailing each
+prompt and the LLM's response. See `./bin/run-prompts.sh -h` for
+documentation and other options.
 
 ### Obtain LLM judgements to responses
 
@@ -120,23 +109,21 @@ This process can be run from `bin/run-evals.sh` as
 follows. Environment and Veddis data from previous steps are still
 assumed to hold:
 
-1. Create a directory to store the output
+```bash
+$> ./bin/run-evals.sh \
+	-g veddis-eval-data/responses \
+	< responses.jsonl \
+	> evaluations.jsonl
+```
 
-   ```bash
-   $> mkdir --parents var/judgements
-   ```
+This will produce `evaluations.jsonl`, a JSONL file that is a superset
+of `responses.jsonl`: each line includes all information from the LLM
+response, in addition to the output of the judgement. As such, the two
+commands can be piped together:
 
-2. Generate the experiments and begin prompting
+```bash
+$> ./bin/run-prompts.sh ... | ./bin/run-evals.sh > evaluations.jsonl
+```
 
-   ```bash
-   $> ./bin/run-evals.sh \
-       -i var/responses \
-	   -o var/judgements \
-	   -g veddis-eval-data/responses
-   ```
-
-   See `./bin/run-evals.sh -h` for documentation and other options.
-
-The directory `var/judgements` will contain `experiments` and
-`results`, corresponding to experiment configurations and LLM
-judgements, respectively.
+without loss of information. See `./bin/run-evals.sh -h` for
+documentation and other options.
