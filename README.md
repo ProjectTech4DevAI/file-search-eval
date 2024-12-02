@@ -22,6 +22,17 @@ This repository automates OpenAI File Search testing.
    $> pip install -r requirements.txt
    ```
 
+3. (Optional) Set the Python log level:
+
+   ```bash
+   $> export PYTHONLOGLEVEL=info
+   ```
+
+   The default level is "warning", however most of the scripts produce
+   useful information at "info". Valid values come from the [Python
+   logging
+   module](https://docs.python.org/3/library/logging.html#logging-levels).
+
 ### Prompts and documents
 
 Gather the prompts and documents that will supply the tests. User and
