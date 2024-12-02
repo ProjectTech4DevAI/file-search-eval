@@ -33,8 +33,8 @@ def parse(collection):
         yield (k, v)
 
 def func(args):
-    Logger.info(args)
-    data = json.loads(args.read_text())
+    # Logger.info(args)
+    data = json.loads(args)
     score = data['judgement']['score']
 
     return dict(parse(data), score=score)
@@ -44,14 +44,12 @@ def func(args):
 #
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--comparisons', type=Path)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
     with Pool(args.workers) as pool:
         writer = None
-        iterable = args.comparisons.iterdir()
-        for i in pool.imap_unordered(func, iterable):
+        for i in pool.imap_unordered(func, sys.stdin):
             if writer is None:
                 writer = csv.DictWriter(sys.stdout, fieldnames=i)
                 writer.writeheader()
