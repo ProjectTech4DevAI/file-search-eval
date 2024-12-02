@@ -29,7 +29,8 @@ def func(incoming, outgoing, args):
         config['judgement'] = (response
                                .choices[0]
                                .message
-                               .parsed.model_dump())
+                               .parsed
+                               .model_dump())
 
         outgoing.put(config)
 
