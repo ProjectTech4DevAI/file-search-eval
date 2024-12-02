@@ -28,5 +28,9 @@ if __name__ == '__main__':
     plt.ylabel('System prompt')
     plt.xlim(args.lowest_score, args.highest_score)
     plt.grid(visible=True, axis='x', alpha=0.5, linestyle='dotted')
+    plt.legend().remove()
+
+    fig = plt.gcf()
+    fig.legend(loc='outside upper center')
 
     plt.savefig(args.output, bbox_inches='tight')
