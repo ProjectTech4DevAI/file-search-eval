@@ -5,9 +5,9 @@ from string import Template
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
-from multiprocessing import Pool, JoinableQueue
+from multiprocessing import Pool, Queue
 
-from mylib import Logger
+# from mylib import Logger
 
 @dataclass
 class Message:
@@ -27,19 +27,19 @@ class ReferenceIterator:
         iterable = it.product(range(self.n), gt.iterdir())
         yield from it.starmap(self.Reference, iterable)
 
-def func(queue, args):
+def func(incoming, outgoing, args):
     prompt = Template(args.user_prompt.read_text())
     system = Message('system', args.system_prompt.read_text())
-    refitr = ReferenceIterator(args.repetition)
+    references = ReferenceIterator(args.repetition)
 
     while True:
-        prediction = queue.get()
+        response = incoming.get()
 
-        pr = json.loads(prediction.read_text())
+        pr = json.loads(response)
         gt = args.ground_truth.joinpath(pr['user'])
         response = pr['response']['message']
 
-        for r in refitr(gt):
+        for r in references(gt):
             reference = r.data.read_text()
             content = prompt.substitute(
                 response=response,
@@ -55,34 +55,37 @@ def func(queue, args):
                 'reference': r.data.name,
                 'evaluation': list(map(asdict, (system, user))),
             })
-
-            out = args.output.joinpath(prediction.name)
-            Logger.info(out)
-            with out.open('w') as fp:
-                print(json.dumps(record, indent=3), file=fp)
-
-        queue.task_done()
+            outgoing.put(record)
+        outgoing.put(None)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--system-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
-    arguments.add_argument('--predictions', type=Path)
-    arguments.add_argument('--output', type=Path)
     arguments.add_argument('--repetition', type=int, default=1)
     arguments.add_argument('--low-score', type=int, default=1)
     arguments.add_argument('--high-score', type=int, default=5)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
-    queue = JoinableQueue()
+    incoming = Queue()
+    outgoing = Queue()
     initargs = (
-        queue,
+        outgoing,
+        incoming,
         args,
     )
 
     with Pool(args.workers, func, initargs):
-        for i in args.predictions.iterdir():
-            queue.put(i)
-        queue.join()
+        jobs = 0
+        for i in sys.stdin:
+            outgoing.put(i)
+            jobs += 1
+
+        while jobs:
+            record = incoming.get()
+            if record is None:
+                jobs -= 1
+            else:
+                print(json.dumps(record))

@@ -1,37 +1,46 @@
+import sys
 import json
 from pathlib import Path
 from argparse import ArgumentParser
-from multiprocessing import Pool, JoinableQueue
+from multiprocessing import Pool, Queue
 
 from mylib import Logger
 
-def func(queue, gt):
+def func(incoming, outgoing, gt):
     while True:
-        experiment = queue.get()
-        Logger.info(experiment)
+        experiment = incoming.get()
 
-        config = json.loads(experiment.read_text())
+        config = json.loads(experiment)
         target = gt.joinpath(config['user'])
-        if not target.exists():
-            Logger.warning('No ground truth: %s', experiment.name)
-            experiment.unlink()
+        if target.exists():
+            record = config
+        else:
+            Logger.warning('No ground truth: %s', config)
+            record = None
 
-        queue.task_done()
+        outgoing.put(record)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--experiments', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
-    queue = JoinableQueue()
+    incoming = Queue()
+    outgoing = Queue()
     initargs = (
-        queue,
+        outgoing,
+        incoming,
         args.ground_truth,
     )
 
     with Pool(args.workers, func, initargs):
-        for i in args.experiments.iterdir():
-            queue.put(i)
-        queue.join()
+        jobs = 0
+        for i in sys.stdin:
+            outgoing.put(i)
+            jobs += 1
+
+        for _ in range(jobs):
+            record = incoming.get()
+            if record is not None:
+                print(json.dumps(record))
