@@ -14,19 +14,9 @@ if __name__ == '__main__':
     arguments.add_argument('--highest-score', type=int, default=5)
     args = arguments.parse_args()
 
-    #
-    #
-    #
     xlabel = '' if args.model is None else args.model + ' '
-
-    #
-    #
-    #
     df = pd.read_csv(sys.stdin)
 
-    #
-    #
-    #
     sns.barplot(
         x='score',
         y='system',
