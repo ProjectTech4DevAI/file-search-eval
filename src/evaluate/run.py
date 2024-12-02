@@ -6,6 +6,8 @@ from argparse import ArgumentParser
 from openai import OpenAI
 from pydantic import BaseModel
 
+from mylib import Logger
+
 class SimilarityEvaluation(BaseModel):
     overlap: str
     difference: str
@@ -18,7 +20,7 @@ if __name__ == '__main__':
     args = arguments.parse_args()
 
     config = json.loads(sys.stdin.read())
-    if logging.getLogger().isEnabledFor(logging.CRITICAL):
+    if logging.getLogger().isEnabledFor(logging.INFO):
         keys = (
             'system',
             'user',
@@ -26,7 +28,7 @@ if __name__ == '__main__':
             'comparison',
         )
         message = ' '.join(str(config.get(x)) for x in keys)
-        logging.critical(message)
+        Logger.info(message)
 
     client = OpenAI()
     response = client.beta.chat.completions.parse(

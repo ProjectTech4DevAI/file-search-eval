@@ -1,12 +1,13 @@
 import sys
 import json
 import time
-import logging
 import collections as cl
 from pathlib import Path
 from argparse import ArgumentParser
 
 from openai import OpenAI, NotFoundError
+
+from mylib import Logger
 
 #
 #
@@ -37,7 +38,7 @@ class ResourceCleaner:
             except NotFoundError:
                 pass
         else:
-            logging.error('Cannot clean %s', type(self).__name__)
+            Logger.error('Cannot clean %s', type(self).__name__)
 
     def clean(self, client):
         raise NotImplementedError()
@@ -107,7 +108,7 @@ if __name__ == '__main__':
     #
 
     config = json.load(sys.stdin)
-    logging.critical(
+    Logger.info(
         ' '.join(str(config.get(x)) for x in ('system', 'user', 'sequence'))
     )
     reader = PromptReader(config, args.prompt_root)
@@ -123,7 +124,7 @@ if __name__ == '__main__':
     documents = args.document_root.joinpath(config['docs'])
     for paths in ls(documents, args.upload_batch_size):
         nfiles = len(paths)
-        logging.warning('Uploading %d', nfiles)
+        Logger.info('Uploading %d', nfiles)
 
         files = [ x.open('rb') for x in paths ]
         file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
@@ -183,7 +184,7 @@ if __name__ == '__main__':
         )
         result = response.data[0].content[0].text.value
     else:
-        logging.error('%s %s', config, run)
+        Logger.error('%s %s', config, run)
         result = None
 
     #

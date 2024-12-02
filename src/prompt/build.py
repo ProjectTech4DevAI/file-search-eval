@@ -1,11 +1,12 @@
 import json
-import logging
 import itertools as it
 from pathlib import Path
 from argparse import ArgumentParser
 from tempfile import NamedTemporaryFile
 from dataclasses import dataclass, asdict
 from multiprocessing import Pool, JoinableQueue
+
+from mylib import Logger
 
 @dataclass
 class Experiment:
@@ -30,7 +31,7 @@ def func(queue, args):
 
     while True:
         experiment = queue.get()
-        logging.warning(experiment)
+        Logger.info(experiment)
 
         config = dict(kwargs)
         config.update(experiment)

@@ -1,12 +1,13 @@
 import sys
 import csv
 import json
-import logging
 import functools as ft
 from typing import Union
 from pathlib import Path
 from argparse import ArgumentParser
 from multiprocessing import Pool
+
+from mylib import Logger
 
 #
 #
@@ -32,7 +33,7 @@ def parse(collection):
         yield (k, v)
 
 def func(args):
-    logging.warning(args)
+    Logger.info(args)
     data = json.loads(args.read_text())
     score = data['judgement']['score']
 

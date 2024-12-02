@@ -1,11 +1,12 @@
 import time
 import json
-import logging
 import operator as op
 from pathlib import Path
 from argparse import ArgumentParser
 
 from openai import OpenAI, NotFoundError
+
+from mylib import Logger
 
 class ResourceManager:
     def __init__(self, client):
@@ -50,7 +51,7 @@ if __name__ == '__main__':
 
     remove = []
     for a in assistants:
-        logging.critical(a.id)
+        Logger.info(a.id)
         for s in stores(a):
             vectors = VectorStoreManager(client, s)
             resources = [ x.id for x in vectors ]
@@ -63,4 +64,4 @@ if __name__ == '__main__':
         try:
             client.beta.assistants.delete(a)
         except NotFoundError:
-            logging.error(a)
+            Logger.error(a)

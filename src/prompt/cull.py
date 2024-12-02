@@ -1,18 +1,19 @@
 import json
-import logging
 from pathlib import Path
 from argparse import ArgumentParser
 from multiprocessing import Pool, JoinableQueue
 
+from mylib import Logger
+
 def func(queue, gt):
     while True:
         experiment = queue.get()
-        logging.warning(experiment)
+        Logger.info(experiment)
 
         config = json.loads(experiment.read_text())
         target = gt.joinpath(config['user'])
         if not target.exists():
-            logging.error(experiment.name)
+            Logger.warning('No ground truth: %s', experiment.name)
             experiment.unlink()
 
         queue.task_done()

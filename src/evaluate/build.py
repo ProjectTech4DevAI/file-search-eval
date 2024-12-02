@@ -1,12 +1,13 @@
 import sys
 import json
-import logging
 import itertools as it
 from string import Template
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
 from multiprocessing import Pool, JoinableQueue
+
+from mylib import Logger
 
 @dataclass
 class Message:
@@ -56,7 +57,7 @@ def func(queue, args):
             })
 
             out = args.output.joinpath(prediction.name)
-            logging.warning(out)
+            Logger.info(out)
             with out.open('w') as fp:
                 print(json.dumps(record, indent=3), file=fp)
 
