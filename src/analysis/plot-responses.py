@@ -1,4 +1,5 @@
 import sys
+import operator as op
 from pathlib import Path
 from argparse import ArgumentParser
 
@@ -21,6 +22,12 @@ if __name__ == '__main__':
         'hue': 'system',
     }
     xlabel = '' if args.model is None else args.model + ' '
+
+    iterable = (
+        (op.sub, args.lowest_score),
+        (op.add, args.highest_score),
+    )
+    xlim = [ x(y, 0.1) for (x, y) in iterable ]
 
     df = pd.read_csv(sys.stdin)
     for (d, g) in df.groupby('docs', sort=False):
