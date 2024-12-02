@@ -22,7 +22,6 @@ if __name__ == '__main__':
         y='system',
         hue='docs',
         data=df,
-        errorbar=('pi', 50),
     )
 
     plt.xlabel(f'{xlabel}score')
