@@ -7,6 +7,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from dotenv import load_dotenv
+
+from marker.converters.pdf import PdfConverter
+from marker.models import create_model_dict
+from marker.output import text_from_rendered
+
 from pyzerox import zerox
 import asyncio
 
@@ -27,12 +32,8 @@ class PDFToMarkdown(ABC):
         raise NotImplementedError()
 
 
-class XeroxPDFToMarkdown(PDFToMarkdown):
-    _name = "xerox-openai"
-    model = os.environ.get("XEROX_MODEL", "gpt-4o")
-    openai_api_key = os.environ.get("OPENAI_API_KEY", None)
-    custom_system_prompt = None
-    select_pages = None
+class MarkerPDFToMarkdown(PDFToMarkdown):
+    _name = "marker"
 
     @classmethod
     def process_file_and_save(cls, file: File) -> None:
@@ -40,22 +41,48 @@ class XeroxPDFToMarkdown(PDFToMarkdown):
         if os.path.exists(output_dir) is False:
             os.makedirs(output_dir)
 
-        async def run_xerox():
-            await zerox(
-                file_path=str(file.abs_path),
-                model=cls.model,
-                output_dir=str(output_dir),
-                custom_system_prompt=cls.custom_system_prompt,
-                select_pages=cls.select_pages,
-            )
+        converter = PdfConverter(
+            artifact_dict=create_model_dict(),
+        )
+        rendered = converter(str(file.abs_path))
+        text, _, images = text_from_rendered(rendered)
 
-        try:
-            asyncio.run(run_xerox())
-        except Exception as e:
-            Logger.error(f"Error processing file {file.abs_path} : {e}")
-            return str(file.abs_path)
+        markdown_file_name = f"{file.abs_path.stem}.md"
 
-        Logger.info(f"Processed and save file to {file.output_dir}")
+        # save text to md file
+        with open(output_dir / markdown_file_name, "w") as f:
+            f.write(text)
+
+
+# class XeroxPDFToMarkdown(PDFToMarkdown):
+#     _name = "xerox-openai"
+#     model = os.environ.get("XEROX_MODEL", "gpt-4o")
+#     openai_api_key = os.environ.get("OPENAI_API_KEY", None)
+#     custom_system_prompt = None
+#     select_pages = None
+
+#     @classmethod
+#     def process_file_and_save(cls, file: File) -> None:
+#         output_dir = Path(file.output_dir) / cls._name / file.relative_path
+#         if os.path.exists(output_dir) is False:
+#             os.makedirs(output_dir)
+
+#         async def run_xerox():
+#             await zerox(
+#                 file_path=str(file.abs_path),
+#                 model=cls.model,
+#                 output_dir=str(output_dir),
+#                 custom_system_prompt=cls.custom_system_prompt,
+#                 select_pages=cls.select_pages,
+#             )
+
+#         try:
+#             asyncio.run(run_xerox())
+#         except Exception as e:
+#             Logger.error(f"Error processing file {file.abs_path} : {e}")
+#             return str(file.abs_path)
+
+#         Logger.info(f"Processed and save file to {file.output_dir}")
 
 
 if __name__ == "__main__":
@@ -89,7 +116,7 @@ if __name__ == "__main__":
     # Process file and generate markdown
     for pdf_to_md_converter in PDFToMarkdown.__subclasses__():
         converter = pdf_to_md_converter()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             futures = [
                 executor.submit(converter.process_file_and_save, file)
                 for file in files_to_process
