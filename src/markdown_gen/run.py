@@ -18,6 +18,7 @@ class File:
     abs_path: Path
     name: str
     output_dir: Path
+    relative_path: Path
 
 
 class PDFToMarkdown(ABC):
@@ -27,6 +28,7 @@ class PDFToMarkdown(ABC):
 
 
 class XeroxPDFToMarkdown(PDFToMarkdown):
+    _name = "xerox-openai"
     model = os.environ.get("XEROX_MODEL", "gpt-4o")
     openai_api_key = os.environ.get("OPENAI_API_KEY", None)
     custom_system_prompt = None
@@ -34,7 +36,7 @@ class XeroxPDFToMarkdown(PDFToMarkdown):
 
     @classmethod
     def process_file_and_save(cls, file: File) -> None:
-        output_dir = file.output_dir
+        output_dir = Path(file.output_dir) / cls._name / file.relative_path
         if os.path.exists(output_dir) is False:
             os.makedirs(output_dir)
 
@@ -76,8 +78,8 @@ if __name__ == "__main__":
                 File(
                     abs_path=Path(root) / filename,
                     name=filename,
-                    output_dir=Path(output_dir)
-                    / Path(root).relative_to(args.knowledge_root),
+                    output_dir=Path(output_dir),
+                    relative_path=Path(root).relative_to(args.knowledge_root),
                 ),
             )
             print(files_to_process[-1].output_dir)
@@ -85,8 +87,8 @@ if __name__ == "__main__":
     Logger.info(f"Files to process : {len(files_to_process)}")
 
     # Process file and generate markdown
-    for pdf_to_converter in PDFToMarkdown.__subclasses__():
-        converter = pdf_to_converter()
+    for pdf_to_md_converter in PDFToMarkdown.__subclasses__():
+        converter = pdf_to_md_converter()
         with ThreadPoolExecutor(max_workers=8) as executor:
             futures = [
                 executor.submit(converter.process_file_and_save, file)
