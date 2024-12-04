@@ -1,2 +1,2 @@
-from .log_utils import Logger
+from ._logs import Logger
 from ._experiment import Experiment
