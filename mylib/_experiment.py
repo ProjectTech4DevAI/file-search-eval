@@ -1,5 +1,5 @@
 from pathlib import Path
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, asdict, fields
 
 @dataclass
 class Experiment:

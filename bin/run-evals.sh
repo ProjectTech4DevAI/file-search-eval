@@ -5,7 +5,7 @@ ROOT=`git rev-parse --show-toplevel`
 export PYTHONPATH=$ROOT
 
 _repetition=3
-_prompts=$ROOT/docs/prompts
+_prompts=$ROOT/docs/prompts/openai
 
 while getopts 'n:g:h' option; do
     case $option in
@@ -26,9 +26,9 @@ EOF
     esac
 done
 
-python $ROOT/src/evaluate/_openai/build.py \
-       --user-prompt $_prompts/evaluate/user \
-       --system-prompt $_prompts/evaluate/system \
+python $ROOT/src/evaluate/openai_/build.py \
+       --user-prompt $_prompts/user \
+       --system-prompt $_prompts/system \
        --ground-truth $_gt \
        --repetition $_repetition \
     | python $ROOT/src/evaluate/run.py

@@ -47,8 +47,6 @@ python $ROOT/src/prompt/build.py ${_extra[@]} \
        --system-prompts $_prompts/system \
        --documents $_documents \
        --repetition $_repetition \
-    | python $ROOT/src/prompt/cull.py \
-	     --ground-truth $_gt \
     | python $ROOT/src/prompt/run.py \
 	     --document-root $_documents \
 	     --prompt-root $_prompts
