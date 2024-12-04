@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams
 
-# from mylib import Logger
+from mylib import Logger, Experiment
 
 @dataclass
 class EvaluationResult:
@@ -48,6 +48,7 @@ def func(incoming, outgoing, args):
     while True:
         sample = incoming.get()
         config = json.loads(sample)
+        Logger.info(Experiment.stringify(config))
 
         user = config['user']
         gt = args.ground_truth.joinpath(user)

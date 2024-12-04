@@ -6,7 +6,7 @@ from multiprocessing import Pool, Queue
 from openai import OpenAI
 from pydantic import BaseModel
 
-# from mylib import Logger
+from mylib import Logger, Experiment
 
 class SimilarityEvaluation(BaseModel):
     overlap: str
@@ -20,6 +20,7 @@ def func(incoming, outgoing, args):
     while True:
         sample = incoming.get()
         config = json.loads(sample)
+        Logger.info(Experiment.stringify(config))
 
         response = client.beta.chat.completions.parse(
             model=args.model,
