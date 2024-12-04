@@ -1,0 +1,4 @@
+{
+   "name": "Correctness",
+   "criteria": "Determine whether the actual output conveys the same meaning as the expected output."
+}
