@@ -2,27 +2,8 @@ import json
 import itertools as it
 from pathlib import Path
 from argparse import ArgumentParser
-from dataclasses import dataclass, asdict
 
-from mylib import Logger
-
-@dataclass
-class Experiment:
-    model: str
-    system: Path
-    user: Path
-    docs: Path
-    sequence: int
-
-    def __iter__(self):
-        values = asdict(self)
-        for (k, v) in values.items():
-            if k in ('system', 'user'):
-                v = v.name
-            elif k == 'docs':
-                v = str(v)
-
-            yield (k, v)
+from mylib import Logger, Experiment
 
 def documents(path):
     for root in path.iterdir():
