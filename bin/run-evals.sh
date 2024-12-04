@@ -26,7 +26,7 @@ EOF
     esac
 done
 
-python $ROOT/src/evaluate/build.py \
+python $ROOT/src/evaluate/_openai/build.py \
        --user-prompt $_prompts/evaluate/user \
        --system-prompt $_prompts/evaluate/system \
        --ground-truth $_gt \
