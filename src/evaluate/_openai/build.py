@@ -37,25 +37,26 @@ def func(incoming, outgoing, args):
 
         pr = json.loads(response)
         gt = args.ground_truth.joinpath(pr['user'])
-        response = pr['response']['message']
+        if gt.exists():
+            response = pr['response']['message']
 
-        for r in references(gt):
-            reference = r.data.read_text()
-            content = prompt.substitute(
-                response=response,
-                reference=reference,
-                lower=args.low_score,
-                upper=args.high_score,
-            )
-            user = Message('user', content)
+            for r in references(gt):
+                reference = r.data.read_text()
+                content = prompt.substitute(
+                    response=response,
+                    reference=reference,
+                    lower=args.low_score,
+                    upper=args.high_score,
+                )
+                user = Message('user', content)
 
-            record = dict(pr)
-            record.update({
-                'comparison': r.seq,
-                'reference': r.data.name,
-                'evaluation': list(map(asdict, (system, user))),
-            })
-            outgoing.put(record)
+                record = dict(pr)
+                record.update({
+                    'comparison': r.seq,
+                    'reference': r.data.name,
+                    'evaluation': list(map(asdict, (system, user))),
+                })
+                outgoing.put(record)
         outgoing.put(None)
 
 if __name__ == '__main__':
