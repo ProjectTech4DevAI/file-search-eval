@@ -5,7 +5,6 @@ ROOT=`git rev-parse --show-toplevel`
 export PYTHONPATH=$ROOT
 
 _repetition=3
-_prompts=$ROOT/docs/prompts/openai
 _src=$ROOT/src/evaluate/openai_
 
 while getopts 'n:g:h' option; do
@@ -28,8 +27,8 @@ EOF
 done
 
 python $_src/build.py \
-       --user-prompt $_prompts/user \
-       --system-prompt $_prompts/system \
+       --user-prompt $_src/user.txt \
+       --system-prompt $_src/system.txt \
        --ground-truth $_gt \
        --repetition $_repetition \
     | python $_src/run.py
