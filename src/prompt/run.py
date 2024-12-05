@@ -10,7 +10,7 @@ from multiprocessing import Pool, Queue
 
 from openai import OpenAI, NotFoundError
 
-from mylib import Logger
+from mylib import Logger, ExperimentResponse
 
 #
 #
@@ -23,6 +23,7 @@ class Resource:
 @dataclass(frozen=True)
 class Job:
     resource: Resource
+    model: str
     config: dict
 
 #
@@ -154,12 +155,17 @@ class VectorStoreCreator(ResourceCreator):
         return vector_store
 
 class AssistantCreator(ResourceCreator):
+    _kwargs = (
+        'model',
+        'vector_store',
+    )
+
     def create(self, config, **kwargs):
-        vector_store_id = kwargs['vector_store']
+        (model, vector_store_id) = map(kwargs.get, self._kwargs)
         reader = PromptReader(config, self.args.prompt_root)
 
         assistant = self.client.beta.assistants.create(
-            model=config['model'],
+            model=model,
             instructions=reader('system'),
             temperature=1e-4,
             tools=[{
@@ -179,6 +185,11 @@ class AssistantCreator(ResourceCreator):
 #
 #
 #
+@dataclass(frozen=True)
+class ResourceKey:
+    docs: str
+    model: str
+
 class OpenAIResources:
     _resources = (
         (AssistantCreator, AssistantCleaner),
@@ -209,15 +220,20 @@ class OpenAIResources:
         for line in fp:
             config = json.loads(line)
             docs = config['docs']
+            for model in self.args.model:
+                key = ResourceKey(docs, model)
+                resource = self.resources.get(key)
+                if resource is None:
+                    vector_store = self.v_creator(config)
+                    assistant = self.a_creator(
+                        config,
+                        model=model,
+                        vector_store=vector_store,
+                    )
+                    resource = Resource(assistant, vector_store)
+                    self.resources[key] = resource
 
-            resource = self.resources.get(docs)
-            if resource is None:
-                vector_store = self.v_creator(config)
-                assistant = self.a_creator(config, vector_store=vector_store)
-                resource = Resource(assistant, vector_store)
-                self.resources[docs] = resource
-
-            yield Job(resource, config)
+                yield Job(resource, m, config)
 
 #
 #
@@ -254,7 +270,8 @@ def func(incoming, outgoing, args):
             result = response.data[0].content[0].text.value
         else:
             Logger.error('%s %s', job.config, run)
-            result = None
+            result = ''
+        result = ExperimentResponse(result)
 
         #
         # Clean up
@@ -271,19 +288,16 @@ def func(incoming, outgoing, args):
         # Report the result
         #
 
-        kwargs = cl.defaultdict(dict)
-        kwargs['response'] = {
-            'date': time.strftime('%c'),
-            'message': result,
-        }
-        assert not any(x in job.config for x in kwargs)
+        record = job.config.setdefault('response', [])
+        record.append(asdict(result))
 
-        outgoing.put(dict(job.config, **kwargs))
+        outgoing.put(job.config)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--prompt-root', type=Path)
     arguments.add_argument('--document-root', type=Path)
+    arguments.add_argument('--model', action='append')
     arguments.add_argument('--cleanup-attempts', type=int, default=3)
     arguments.add_argument('--upload-batch-size', type=int, default=20)
     arguments.add_argument('--workers', type=int)

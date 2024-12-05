@@ -12,7 +12,6 @@ def documents(path):
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--model', action='append')
     arguments.add_argument('--user-prompts', type=Path)
     arguments.add_argument('--system-prompts', type=Path)
     arguments.add_argument('--documents', type=Path)
@@ -21,7 +20,6 @@ if __name__ == '__main__':
     args = arguments.parse_args()
 
     conditions = (
-        args.model,
         args.system_prompts.iterdir(),
         args.user_prompts.iterdir(),
         documents(args.documents),

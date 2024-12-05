@@ -1,6 +1,7 @@
 import sys
 import json
 from argparse import ArgumentParser
+from dataclasses import asdict
 from multiprocessing import Pool, Queue
 
 from openai import OpenAI
@@ -8,7 +9,7 @@ from pydantic import BaseModel
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams
 
-from mylib import Logger, Experiment
+from mylib import Logger, Experiment, ResponseJudgement
 
 @dataclass
 class EvaluationResult:
@@ -43,31 +44,40 @@ class DeepEvaluation:
         return cls(**kwargs)
 
 def func(incoming, outgoing, args):
+    _method = 'deepeval:geval'
     evaluator = DeepEvaluation.from_config(args.deep_config)
 
     while True:
         sample = incoming.get()
         config = json.loads(sample)
-        Logger.info(Experiment.stringify(config))
-
         user = config['user']
         gt = args.ground_truth.joinpath(user)
+
+        Logger.info(Experiment.stringify(config))
+
+        records = []
         if gt.exists():
             prompt = args.user_prompt.joinpath(user)
-            response = config['response'][args.response_key],
+            latest = pr['response'][args.response_index]
+            response = ExperimentResponse(**latest)
+
             for g in gt.iterdir():
                 result = evaluator(prompt, response, g.read_data())
-                config['judgement'] = asdict(result)
-                outgoing.put(dict(config))
+                judgement = ResponseJudgement(_method, asdict(result))
 
-        outgoing.put(None)
+                c = dict(config)
+                trail = c.setdefault('judgement', [])
+                trail.append(asdict(judgement))
+
+                records.append(c)
+        outgoing.put(records)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--deep-config', type=Path)
-    arguments.add_argument('--response-key', default='message')
+    arguments.add_argument('--response-index', type=int, default=-1)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
@@ -85,9 +95,7 @@ if __name__ == '__main__':
             outgoing.put(i)
             jobs += 1
 
-        while jobs:
-            result = incoming.get()
-            if result is None:
-                jobs -= 1
-            else:
-                print(json.dumps(result))
+        for _ in range(jobs):
+            records = incoming.get()
+            if records:
+                print(*map(json.dumps, records), sep='\n')

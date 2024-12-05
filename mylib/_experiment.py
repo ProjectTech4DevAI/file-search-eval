@@ -1,9 +1,9 @@
+import time
 from pathlib import Path
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass, asdict, field, fields
 
-@dataclass
+@dataclass(frozen=True)
 class Experiment:
-    model: str
     system: Path
     user: Path
     docs: Path
@@ -22,3 +22,16 @@ class Experiment:
     @classmethod
     def stringify(cls, config):
         return ' '.join(str(config.get(x.name)) for x in fields(cls))
+
+@dataclass(frozen=True)
+class ExperimentResponse:
+    message: str
+    date: str = field(default_factory=lambda: time.strftime('%c'))
+
+    def __str__(self):
+        return self.message
+
+@dataclass(frozen=True)
+class ResponseJudgement:
+    method: str
+    body: dict
