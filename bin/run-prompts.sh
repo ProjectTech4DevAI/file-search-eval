@@ -46,7 +46,12 @@ python $ROOT/src/prompt/build.py ${_extra[@]} \
        --user-prompts $_prompts/user \
        --system-prompts $_prompts/system \
        --documents $_documents \
-       --repetition $_repetition \
-    | python $ROOT/src/prompt/run.py \
-	     --document-root $_documents \
-	     --prompt-root $_prompts
+       --repetition $_repetition | \
+    if [ $_gt ]; then
+	python $ROOT/src/prompt/cull.py --ground-truth $_gt
+    else
+	cat
+    fi | \
+	python $ROOT/src/prompt/run.py \
+	       --document-root $_documents \
+	       --prompt-root $_prompts
