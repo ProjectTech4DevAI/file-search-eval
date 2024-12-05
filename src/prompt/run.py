@@ -71,7 +71,7 @@ class MessageCleaner(ResourceCleaner):
         )
 
 class ThreadCleaner(ResourceCleaner):
-    def	clean(self, client):
+    def clean(self, client):
         client.beta.threads.delete(self.resource)
 
 class AssistantCleaner(ResourceCleaner):
@@ -102,6 +102,10 @@ class ResourceCreator:
         self.args = args
 
     def __call__(self, config, **kwargs):
+        handle = self.create(config, **kwargs)
+        return handle.id
+
+    def create(self, config, **kwargs):
         raise NotImplementedError()
 
 class VectorStoreCreator(ResourceCreator):
@@ -118,7 +122,7 @@ class VectorStoreCreator(ResourceCreator):
         if batch:
             yield batch
 
-    def __call__(self, config, **kwargs):
+    def create(self, config, **kwargs):
         vector_store = self.client.beta.vector_stores.create()
         vector_store_cleaner = VectorStoreCleaner(vector_store.id)
 
@@ -147,10 +151,10 @@ class VectorStoreCreator(ResourceCreator):
                 )
                 raise IndexError(msg)
 
-        return vector_store.id
+        return vector_store
 
 class AssistantCreator(ResourceCreator):
-    def __call__(self, config, **kwargs):
+    def create(self, config, **kwargs):
         vector_store_id = kwargs['vector_store']
         reader = PromptReader(config, self.args.prompt_root)
 
@@ -170,7 +174,7 @@ class AssistantCreator(ResourceCreator):
             },
         )
 
-        return assistant.id
+        return assistant
 
 #
 #
@@ -190,14 +194,12 @@ class OpenAIResources:
             x(self.client, self.args) for (x, _) in self._resources
         )
 
-
     def __enter__(self):
         self.resources.clear()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         cleaners = list(map(op.itemgetter(1), self._resources))
-
         for resource in self.resources.values():
             for (MyCleaner, r) in zip(cleaners, astuple(resource)):
                 cleaner = MyCleaner(r)
@@ -213,7 +215,6 @@ class OpenAIResources:
                 vector_store = self.v_creator(config)
                 assistant = self.a_creator(config, vector_store=vector_store)
                 resource = Resource(assistant, vector_store)
-
                 self.resources[docs] = resource
 
             yield Job(resource, config)
@@ -222,6 +223,7 @@ class OpenAIResources:
 #
 #
 def func(incoming, outgoing, args):
+    user = 'user'
     client = OpenAI()
 
     while True:
@@ -236,8 +238,8 @@ def func(incoming, outgoing, args):
         reader = PromptReader(job.config, args.prompt_root)
         message = client.beta.threads.messages.create(
             thread.id,
-            role='user',
-            content=reader('user'),
+            role=user,
+            content=reader(user),
         )
         run = client.beta.threads.runs.create_and_poll(
             thread_id=thread.id,
