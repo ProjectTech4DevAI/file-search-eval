@@ -54,7 +54,7 @@ def func(incoming, outgoing, args):
         gt = args.ground_truth.joinpath(user)
         if gt.exists():
             prompt = args.user_prompt.joinpath(user)
-            response = config['response']['message'],
+            response = config['response'][args.response_key],
             for g in gt.iterdir():
                 result = evaluator(prompt, response, g.read_data())
                 config['judgement'] = asdict(result)
@@ -67,6 +67,7 @@ if __name__ == '__main__':
     arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--deep-config', type=Path)
+    arguments.add_argument('--response-key', default='message')
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 

@@ -38,7 +38,7 @@ def func(incoming, outgoing, args):
         pr = json.loads(response)
         gt = args.ground_truth.joinpath(pr['user'])
         if gt.exists():
-            response = pr['response']['message']
+            response = pr['response'][args.response_key]
 
             for r in references(gt):
                 reference = r.data.read_text()
@@ -67,6 +67,7 @@ if __name__ == '__main__':
     arguments.add_argument('--repetition', type=int, default=1)
     arguments.add_argument('--low-score', type=int, default=1)
     arguments.add_argument('--high-score', type=int, default=5)
+    arguments.add_argument('--response-key', default='message')
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
