@@ -71,7 +71,7 @@ class MessageCleaner(ResourceCleaner):
         )
 
 class ThreadCleaner(ResourceCleaner):
-    def	clean(self, client):
+    def clean(self, client):
         client.beta.threads.delete(self.resource)
 
 class AssistantCleaner(ResourceCleaner):
@@ -190,14 +190,12 @@ class OpenAIResources:
             x(self.client, self.args) for (x, _) in self._resources
         )
 
-
     def __enter__(self):
         self.resources.clear()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         cleaners = list(map(op.itemgetter(1), self._resources))
-
         for resource in self.resources.values():
             for (MyCleaner, r) in zip(cleaners, astuple(resource)):
                 cleaner = MyCleaner(r)
@@ -213,7 +211,6 @@ class OpenAIResources:
                 vector_store = self.v_creator(config)
                 assistant = self.a_creator(config, vector_store=vector_store)
                 resource = Resource(assistant, vector_store)
-
                 self.resources[docs] = resource
 
             yield Job(resource, config)
