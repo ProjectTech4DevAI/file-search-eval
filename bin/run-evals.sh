@@ -6,6 +6,7 @@ export PYTHONPATH=$ROOT
 
 _repetition=3
 _prompts=$ROOT/docs/prompts/openai
+_src=$ROOT/src/evaluate/openai_
 
 while getopts 'n:g:h' option; do
     case $option in
@@ -26,9 +27,9 @@ EOF
     esac
 done
 
-python $ROOT/src/evaluate/openai_/build.py \
+python $_src/build.py \
        --user-prompt $_prompts/user \
        --system-prompt $_prompts/system \
        --ground-truth $_gt \
        --repetition $_repetition \
-    | python $ROOT/src/evaluate/run.py
+    | python $_src/run.py
