@@ -102,6 +102,10 @@ class ResourceCreator:
         self.args = args
 
     def __call__(self, config, **kwargs):
+        handle = self.create(config, **kwargs)
+        return handle.id
+
+    def create(self, config, **kwargs):
         raise NotImplementedError()
 
 class VectorStoreCreator(ResourceCreator):
@@ -118,7 +122,7 @@ class VectorStoreCreator(ResourceCreator):
         if batch:
             yield batch
 
-    def __call__(self, config, **kwargs):
+    def create(self, config, **kwargs):
         vector_store = self.client.beta.vector_stores.create()
         vector_store_cleaner = VectorStoreCleaner(vector_store.id)
 
@@ -147,10 +151,10 @@ class VectorStoreCreator(ResourceCreator):
                 )
                 raise IndexError(msg)
 
-        return vector_store.id
+        return vector_store
 
 class AssistantCreator(ResourceCreator):
-    def __call__(self, config, **kwargs):
+    def create(self, config, **kwargs):
         vector_store_id = kwargs['vector_store']
         reader = PromptReader(config, self.args.prompt_root)
 
@@ -170,7 +174,7 @@ class AssistantCreator(ResourceCreator):
             },
         )
 
-        return assistant.id
+        return assistant
 
 #
 #
