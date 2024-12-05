@@ -219,6 +219,7 @@ class OpenAIResources:
 #
 #
 def func(incoming, outgoing, args):
+    user = 'user'
     client = OpenAI()
 
     while True:
@@ -233,8 +234,8 @@ def func(incoming, outgoing, args):
         reader = PromptReader(job.config, args.prompt_root)
         message = client.beta.threads.messages.create(
             thread.id,
-            role='user',
-            content=reader('user'),
+            role=user,
+            content=reader(user),
         )
         run = client.beta.threads.runs.create_and_poll(
             thread_id=thread.id,
