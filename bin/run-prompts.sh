@@ -42,7 +42,6 @@ fi
 models=`sed -e's/ / --model /g' <<< ${_models[@]}`
 
 python $ROOT/src/prompt/build.py ${_extra[@]} \
-       --model $models \
        --user-prompts $_prompts/user \
        --system-prompts $_prompts/system \
        --documents $_documents \
@@ -53,5 +52,6 @@ python $ROOT/src/prompt/build.py ${_extra[@]} \
 	cat
     fi | \
 	python $ROOT/src/prompt/run.py \
+	       --model $models \
 	       --document-root $_documents \
 	       --prompt-root $_prompts
