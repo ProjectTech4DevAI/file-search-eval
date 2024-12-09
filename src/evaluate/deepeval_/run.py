@@ -71,7 +71,6 @@ if __name__ == '__main__':
     arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--deep-config', type=Path)
-    arguments.add_argument('--response-index', type=int, default=-1)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
