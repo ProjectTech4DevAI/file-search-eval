@@ -17,16 +17,13 @@ class ReferenceIterator:
         self.gt = gt
         self.repetition = repetition
 
-    def __call__(self, config):
-        refs = self.gt.joinpath(config['user'])
+    def __call__(self, user):
+        refs = self.gt.joinpath(user)
         if not refs.exists():
             raise FileNotFoundError(refs)
 
         for (i, gt) in it.product(range(self.repetition), refs.iterdir()):
-            c = dict(config)
-            c.update(zip(self._keys, (i, gt.name)))
-
-            yield c
+            yield dict(zip(self._keys, (i, gt.name)))
 
 def func(incoming, outgoing, args):
     references = ReferenceIterator(
@@ -38,8 +35,10 @@ def func(incoming, outgoing, args):
         sample = incoming.get()
         config = json.loads(sample)
         try:
-            for r in references(config):
-                outgoing.put(r)
+            for r in references(config['user']):
+                c = dict(config)
+                c.update(r)
+                outgoing.put(c)
         except FileNotFoundError as err:
             Logger.error(err)
         finally:
