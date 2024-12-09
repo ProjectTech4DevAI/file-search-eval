@@ -64,7 +64,7 @@ def func(incoming, outgoing, args):
         record = config.setdefault('judgement', [])
         record.append(asdict(judgement))
 
-        outgoing.put(record)
+        outgoing.put(config)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
