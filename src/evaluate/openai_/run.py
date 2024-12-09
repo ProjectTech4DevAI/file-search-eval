@@ -34,7 +34,8 @@ def func(incoming, outgoing, args):
                 .message
                 .parsed
                 .model_dump())
-        judgement = ResponseJudgement(method, body)
+        score = body.pop('score')
+        judgement = ResponseJudgement(method, score, body)
 
         record = config.setdefault('judgement', [])
         record.append(asdict(judgement))

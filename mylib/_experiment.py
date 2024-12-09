@@ -1,4 +1,5 @@
 import time
+from typing import Any
 from pathlib import Path
 from dataclasses import dataclass, asdict, field, fields
 
@@ -34,4 +35,5 @@ class ExperimentResponse:
 @dataclass(frozen=True)
 class ResponseJudgement:
     method: str
-    body: dict
+    score: float
+    support: Any

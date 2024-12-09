@@ -1,7 +1,7 @@
 import sys
 import json
 from argparse import ArgumentParser
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from multiprocessing import Pool, Queue
 
 from openai import OpenAI
@@ -10,11 +10,6 @@ from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCaseParams
 
 from mylib import Logger, Experiment, ResponseJudgement
-
-@dataclass
-class EvaluationResult:
-    score: float
-    reason: str
 
 class DeepEvaluation:
     _evaluation_params = [
@@ -36,7 +31,7 @@ class DeepEvaluation:
         )
         g_eval.measure(test)
 
-        return EvaluationResult(g_eval.score, g_eval.reason)
+        return ResponseJudgement(None, g_eval.score, g_eval.reason)
 
     @classmethod
     def from_config(cls, config):
@@ -62,8 +57,8 @@ def func(incoming, outgoing, args):
             response = ExperimentResponse(**latest)
 
             for g in gt.iterdir():
-                result = evaluator(prompt, response, g.read_data())
-                judgement = ResponseJudgement(_method, asdict(result))
+                judgement = evaluator(prompt, response, g.read_data())
+                judgement = replace(judgement, method=_method)
 
                 c = dict(config)
                 trail = c.setdefault('judgement', [])
