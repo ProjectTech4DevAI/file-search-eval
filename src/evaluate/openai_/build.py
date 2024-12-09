@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
 from multiprocessing import Pool, Queue
 
-# from mylib import Logger
+from mylib import ExperimentResponse
 
 @dataclass
 class Message:
