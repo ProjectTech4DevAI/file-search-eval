@@ -1,22 +1,21 @@
 import sys
 import json
+from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import asdict, replace
 from multiprocessing import Pool, Queue
 
-from openai import OpenAI
-from pydantic import BaseModel
 from deepeval.metrics import GEval
-from deepeval.test_case import LLMTestCaseParams
+from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
-from mylib import Logger, Experiment, ResponseJudgement
+from mylib import Logger, Experiment, ExperimentResponse, ResponseJudgement
 
 class DeepEvaluation:
     _evaluation_params = [
         LLMTestCaseParams.INPUT,
         LLMTestCaseParams.ACTUAL_OUTPUT,
         LLMTestCaseParams.EXPECTED_OUTPUT,
-    ],
+    ]
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
@@ -35,7 +34,7 @@ class DeepEvaluation:
 
     @classmethod
     def from_config(cls, config):
-        kwargs = json.loads(path.read_text())
+        kwargs = json.loads(config.read_text())
         return cls(**kwargs)
 
 def func(incoming, outgoing, args):
@@ -53,11 +52,11 @@ def func(incoming, outgoing, args):
         records = []
         if gt.exists():
             prompt = args.user_prompt.joinpath(user)
-            latest = pr['response'][args.response_index]
+            latest = config['response'][args.response_index]
             response = ExperimentResponse(**latest)
 
             for g in gt.iterdir():
-                judgement = evaluator(prompt, response, g.read_data())
+                judgement = evaluator(prompt, response, g.read_text())
                 judgement = replace(judgement, method=_method)
 
                 c = dict(config)
