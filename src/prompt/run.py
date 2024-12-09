@@ -233,7 +233,7 @@ class OpenAIResources:
                     resource = Resource(assistant, vector_store)
                     self.resources[key] = resource
 
-                yield Job(resource, m, config)
+                yield Job(resource, model, config)
 
 #
 #
