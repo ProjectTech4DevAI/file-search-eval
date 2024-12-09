@@ -89,6 +89,5 @@ if __name__ == '__main__':
             jobs += 1
 
         for _ in range(jobs):
-            records = incoming.get()
-            if records:
-                print(*map(json.dumps, records), sep='\n')
+            record = incoming.get()
+            print(json.dumps(record))
