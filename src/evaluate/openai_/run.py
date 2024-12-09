@@ -1,12 +1,13 @@
 import sys
 import json
 from argparse import ArgumentParser
+from dataclasses import asdict
 from multiprocessing import Pool, Queue
 
 from openai import OpenAI
 from pydantic import BaseModel
 
-from mylib import Logger, Experiment
+from mylib import Logger, Experiment, ResponseJudgement
 
 class SimilarityEvaluation(BaseModel):
     overlap: str
@@ -16,6 +17,7 @@ class SimilarityEvaluation(BaseModel):
 
 def func(incoming, outgoing, args):
     client = OpenAI()
+    method = f'{args.model}:custom'
 
     while True:
         sample = incoming.get()
@@ -27,11 +29,16 @@ def func(incoming, outgoing, args):
             messages=config['evaluation'],
             response_format=SimilarityEvaluation,
         )
-        config['judgement'] = (response
-                               .choices[0]
-                               .message
-                               .parsed
-                               .model_dump())
+        body = (response
+                .choices[0]
+                .message
+                .parsed
+                .model_dump())
+        score = body.pop('score')
+        judgement = ResponseJudgement(method, score, body)
+
+        record = config.setdefault('judgement', [])
+        record.append(asdict(judgement))
 
         outgoing.put(config)
 

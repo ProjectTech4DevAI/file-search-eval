@@ -7,7 +7,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from multiprocessing import Pool, Queue
 
-from mylib import Logger
+from mylib import Logger, ResponseJudgement
 
 #
 #
@@ -24,6 +24,20 @@ def _(element: Union[str, int]):
 #
 #
 #
+class ScoreHandler:
+    def __init__(self, method):
+        self.method = method
+
+    def __call__(self, judgements):
+        for j in judgements:
+            response = ResponseJudgement(**j)
+            if response.method == self.method:
+                return response.score
+
+        raise ValueError(f'Unknown method: {self.method}')
+#
+#
+#
 def parse(collection):
     for (k, v) in collection.items():
         try:
@@ -32,19 +46,25 @@ def parse(collection):
             continue
         yield (k, v)
 
-def func(incoming, outgoing, nchars):
+def func(incoming, outgoing, args):
+    handler = ScoreHandler(args.method)
+    prompts = (
+        'system',
+        'user',
+    )
+
     while True:
         result = incoming.get()
         # Logger.info(result)
 
         data = json.loads(result)
-        if nchars is not None:
-            for i in ('system', 'user'):
-                data[i] = data[i][:nchars]
+        if args.name_length is not None:
+            for i in prompts:
+                data[i] = data[i][:args.name_length]
             docs = Path(data['docs'])
-            docs = docs.parent.joinpath(docs.name[:nchars])
+            docs = docs.parent.joinpath(docs.name[:args.name_length])
             data['docs'] = str(docs)
-        score = data['judgement']['score']
+        score = handler(data['judgement'])
 
         outgoing.put(dict(parse(data), score=score))
 
@@ -53,6 +73,9 @@ def func(incoming, outgoing, nchars):
 #
 if __name__ == '__main__':
     arguments = ArgumentParser()
+    arguments.add_argument('--method', choices=[
+        'gpt-4o-2024-08-06:custom',
+    ])
     arguments.add_argument('--name-length', type=int)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
@@ -62,7 +85,7 @@ if __name__ == '__main__':
     initargs = (
         outgoing,
         incoming,
-        args.name_length,
+        args,
     )
 
     with Pool(args.workers, func, initargs):

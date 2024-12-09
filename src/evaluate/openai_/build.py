@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
 from multiprocessing import Pool, Queue
 
-# from mylib import Logger
+from mylib import ExperimentResponse
 
 @dataclass
 class Message:
@@ -33,17 +33,18 @@ def func(incoming, outgoing, args):
     references = ReferenceIterator(args.repetition)
 
     while True:
-        response = incoming.get()
+        sample = incoming.get()
 
-        pr = json.loads(response)
+        pr = json.loads(sample)
         gt = args.ground_truth.joinpath(pr['user'])
         if gt.exists():
-            response = pr['response'][args.response_key]
+            latest = pr['response'][args.response_index]
+            response = ExperimentResponse(**latest)
 
             for r in references(gt):
                 reference = r.data.read_text()
                 content = prompt.substitute(
-                    response=response,
+                    response=response.message,
                     reference=reference,
                     lower=args.low_score,
                     upper=args.high_score,
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     arguments.add_argument('--repetition', type=int, default=1)
     arguments.add_argument('--low-score', type=int, default=1)
     arguments.add_argument('--high-score', type=int, default=5)
-    arguments.add_argument('--response-key', default='message')
+    arguments.add_argument('--response-index', type=int, default=-1)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
