@@ -55,7 +55,7 @@ def func(incoming, outgoing, args):
         user = config['user']
 
         prompt = args.user_prompt.joinpath(user)
-        gt = args.ground_truth.joinpath(user).read_text()
+        gt = args.ground_truth.joinpath(user, config['reference']).read_text()
         pr = ExperimentResponse(**config['response'][-1])
 
         judgement = evaluator(prompt, pr, gt)
