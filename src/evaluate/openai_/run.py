@@ -31,23 +31,21 @@ class SimilarityEvaluation(BaseModel):
 #
 #
 #
-class UserMessage:
-    def __init__(self, user, gt, low, high):
-        self.user = user
-        self.gt = gt
-        self.kwargs = dict(zip(('lower', 'upper'), (low, high)))
+def message(prompt, config, args):
+    latest = config['response'][-1] # use the most recent response
+    response = ExperimentResponse(**latest)
+    reference = (args
+                 .ground_truth
+                 .joinpath(config['user'], config['reference'])
+                 .read_text())
+    content = prompt.substitute(
+        response=str(response),
+        reference=reference,
+        lower=args.low_score,
+        upper=args.high_score,
+    )
 
-    def __call__(self, config):
-        latest = config['response'][-1] # use the most recent response
-        response = ExperimentResponse(**latest)
-        reference = self.gt.joinpath(config['reference']).read_text()
-        content = self.user.substitute(
-            response=str(response),
-            reference=reference,
-            **self.kwargs,
-        )
-
-        return Message('user', content)
+    return Message('user', content)
 
 #
 #
@@ -56,12 +54,7 @@ def func(incoming, outgoing, args):
     client = OpenAI()
     method = f'{args.model}:custom'
 
-    prompt = UserMessage(
-        Template(args.user_prompt.read_text()),
-        args.ground_truth,
-        args.low_score,
-        args.high_score,
-    )
+    prompt = Template(args.user_prompt.read_text())
     system = Message('system', args.system_prompt.read_text())
     messages = [
         asdict(system),
@@ -73,7 +66,7 @@ def func(incoming, outgoing, args):
 
         config = json.loads(sample)
         Logger.info(Experiment.stringify(config))
-        messages[-1] = asdict(prompt(config))
+        messages[-1] = asdict(message(prompt, config, args))
 
         response = client.beta.chat.completions.parse(
             model=args.model,
