@@ -1,74 +1,54 @@
 import sys
 import json
 import itertools as it
-from string import Template
 from pathlib import Path
 from argparse import ArgumentParser
-from dataclasses import dataclass, asdict
 from multiprocessing import Pool, Queue
 
-from mylib import ExperimentResponse
-
-@dataclass
-class Message:
-    role: str
-    content: str
+from mylib import Logger
 
 class ReferenceIterator:
-    @dataclass
-    class Reference:
-        seq: int
-        data: Path
+    _keys = (
+        'comparison',
+        'reference',
+    )
 
-    def __init__(self, n):
-        self.n = n
+    def __init__(self, gt, repetition=1):
+        self.gt = gt
+        self.repetition = repetition
 
-    def __call__(self, gt):
-        iterable = it.product(range(self.n), gt.iterdir())
-        yield from it.starmap(self.Reference, iterable)
+    def __call__(self, config):
+        refs = self.gt.joinpath(config['user'])
+        if not refs.exists():
+            raise FileNotFoundError(refs)
+
+        for (i, gt) in it.product(range(self.repetition), refs.iterdir()):
+            c = dict(config)
+            c.update(zip(self._keys, (i, gt.name)))
+
+            yield c
 
 def func(incoming, outgoing, args):
-    prompt = Template(args.user_prompt.read_text())
-    system = Message('system', args.system_prompt.read_text())
-    references = ReferenceIterator(args.repetition)
+    references = ReferenceIterator(
+        args.ground_truth,
+        args.repetition,
+    )
 
     while True:
         sample = incoming.get()
-
-        pr = json.loads(sample)
-        gt = args.ground_truth.joinpath(pr['user'])
-        if gt.exists():
-            latest = pr['response'][args.response_index]
-            response = ExperimentResponse(**latest)
-
-            for r in references(gt):
-                reference = r.data.read_text()
-                content = prompt.substitute(
-                    response=response.message,
-                    reference=reference,
-                    lower=args.low_score,
-                    upper=args.high_score,
-                )
-                user = Message('user', content)
-
-                record = dict(pr)
-                record.update({
-                    'comparison': r.seq,
-                    'reference': r.data.name,
-                    'evaluation': list(map(asdict, (system, user))),
-                })
-                outgoing.put(record)
-        outgoing.put(None)
+        config = json.loads(sample)
+        try:
+            for r in references(config):
+                outgoing.put(r)
+        except FileNotFoundError as err:
+            Logger.error(err)
+        finally:
+            outgoing.put(None)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--user-prompt', type=Path)
-    arguments.add_argument('--system-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--repetition', type=int, default=1)
-    arguments.add_argument('--low-score', type=int, default=1)
-    arguments.add_argument('--high-score', type=int, default=5)
-    arguments.add_argument('--response-index', type=int, default=-1)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 

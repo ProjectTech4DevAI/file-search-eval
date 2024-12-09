@@ -10,6 +10,9 @@ from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
 from mylib import Logger, Experiment, ExperimentResponse, ResponseJudgement
 
+#
+#
+#
 class DeepEvaluation:
     _evaluation_params = [
         LLMTestCaseParams.INPUT,
@@ -37,34 +40,31 @@ class DeepEvaluation:
         kwargs = json.loads(config.read_text())
         return cls(**kwargs)
 
+#
+#
+#
 def func(incoming, outgoing, args):
     _method = 'deepeval:geval'
     evaluator = DeepEvaluation.from_config(args.deep_config)
 
     while True:
         sample = incoming.get()
+
         config = json.loads(sample)
-        user = config['user']
-        gt = args.ground_truth.joinpath(user)
-
         Logger.info(Experiment.stringify(config))
+        user = config['user']
 
-        records = []
-        if gt.exists():
-            prompt = args.user_prompt.joinpath(user)
-            latest = config['response'][args.response_index]
-            response = ExperimentResponse(**latest)
+        prompt = args.user_prompt.joinpath(user)
+        gt = args.ground_truth.joinpath(user).read_text()
+        pr = ExperimentResponse(**config['response'][-1])
 
-            for g in gt.iterdir():
-                judgement = evaluator(prompt, response, g.read_text())
-                judgement = replace(judgement, method=_method)
+        judgement = evaluator(prompt, pr, gt)
+        judgement = replace(judgement, method=_method)
 
-                c = dict(config)
-                trail = c.setdefault('judgement', [])
-                trail.append(asdict(judgement))
+        record = config.setdefault('judgement', [])
+        record.append(asdict(judgement))
 
-                records.append(c)
-        outgoing.put(records)
+        outgoing.put(record)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
