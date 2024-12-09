@@ -7,7 +7,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from multiprocessing import Pool, Queue
 
-from mylib import Logger
+from mylib import Logger, ResponseJudgement
 
 #
 #
@@ -29,13 +29,12 @@ class ScoreHandler:
         self.method = method
 
     def __call__(self, judgements):
-        (*_, score) = self.gather(gather)
-        return score
-
-    def gather(self, judgements):
         for j in judgements:
-            if j['method'] == self.method:
-                yield j['score']
+            response = ResponseJudgement(**j)
+            if response.method == self.method:
+                return response.score
+
+        raise ValueError(f'Unknown method: {self.method}')
 #
 #
 #
@@ -74,7 +73,9 @@ def func(incoming, outgoing, args):
 #
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--method')
+    arguments.add_argument('--method', choices=[
+        'gpt-4o-2024-08-06:custom',
+    ])
     arguments.add_argument('--name-length', type=int)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
@@ -84,7 +85,7 @@ if __name__ == '__main__':
     initargs = (
         outgoing,
         incoming,
-        args.name_length,
+        args,
     )
 
     with Pool(args.workers, func, initargs):
