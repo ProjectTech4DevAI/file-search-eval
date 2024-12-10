@@ -123,7 +123,7 @@ Response generation happens in two phases. In the first "experiments"
 are created specifying the system prompt, user prompt, markdown files,
 and user prompt iteration being tested. In the second phase each
 experiment file is used to setup a File Search interaction, including
-a vector store, assistant, thread, and message. The OpenAI resouces
+a vector store, assistant, thread, and message. The OpenAI resources
 are deleted once the query has completed.
 
 The entire process can be run from `bin/run-prompts.sh` as
@@ -165,7 +165,7 @@ This process can be run from `bin/run-evals.sh` as follows:
 $> ./bin/run-evals.sh -g /data/ground-truth < responses.jsonl > evaluations.jsonl
 ```
 
-This will produce `evaluations.jsonl`, a JSONL file that is a superset
+This will produce `evaluations.jsonl`, a JSONL file that is a super set
 of `responses.jsonl`: each line includes all information from the LLM
 response, in addition to the output of the judgement. As such, the two
 commands can be piped together:
@@ -175,7 +175,7 @@ $> ./bin/run-prompts.sh ... | ./bin/run-evals.sh > evaluations.jsonl
 ```
 
 without loss of information. See `./bin/run-evals.sh -h` for
-documentation, other options, and insigh into the Python scripts that
+documentation, other options, and insight into the Python scripts that
 are doing the work.
 
 ## Analysis
