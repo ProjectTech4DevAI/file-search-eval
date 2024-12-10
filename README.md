@@ -41,6 +41,8 @@ This repository automates OpenAI File Search testing.
 
 ### Prompts and documents
 
+#### Prompts
+
 Gather the prompts and documents that will supply the tests. User and
 system prompts are expected to live under a common directory:
 
@@ -58,29 +60,63 @@ system prompts are expected to live under a common directory:
     └── file-n
 ```
 
+#### Vector store documents
+
+Documents that support LLM interaction -- files that go into the
+vector store -- are expected to obey the following structure:
+
+```
+/data/documents
+├── method_1
+│   └── instance_1
+│       └── ...
+├── method_2
+│   └── instance_1
+│       └── ...
+```
+
+Where the actual documents live within the `...` sub-level. Each
+parent folder, `method_n/instance_n` is designed to hold a different
+version of the document sets.
+
+#### Ground truth responses
+
+Responses that are deemed to be "correct" should be stored as follows:
+
+```
+/data/ground-truth
+├── user-1
+│   ├── file-1
+│   ├── file-2
+│   ├── ...
+│   └── file-n
+└── user-2
+    ├── file-1
+    ├── file-2
+    ├── ...
+    └── file-n
+```
+
+Where `user-n` is the basename of the user prompt, and `file-n` is an
+arbitrary file name. It is imperative that the `user-n` names be
+present in the `/data/prompts/user`.
+
 ## Run
 
 There are two components to this repository: getting responses to
-queries, and evaluating those responses. In this section, we will
-assume you are using
-[veddis-eval-data](https://github.com/ProjectTech4DevAI/veddis-eval-data). From
-the root of this repository:
-
-```bash
-$> git clone https://github.com/ProjectTech4DevAI/veddis-eval-data.git
-```
+queries, and evaluating those responses.
 
 ### Get responses to queries
 
-For each combination of
+The prompt phase takes each combination of
 
-* system prompt (`veddis-eval-data/prompts/system`)
-* user prompt (`veddis-eval-data/prompts/user`)
-* markdown files (`veddis-eval-data/docs`)
+* system prompt
+* user prompt
+* markdown docs
 
-generate completions from OpenAI File Search that are supported by the
-markdown files. By default, each user prompt is sent multiple times to
-test consistency.
+and generates completions from OpenAI File Search that are supported
+by the markdown files. By default, each user prompt is sent multiple
+times to test consistency.
 
 Response generation happens in two phases. In the first "experiments"
 are created specifying the system prompt, user prompt, markdown files,
@@ -94,32 +130,38 @@ follows. Assuming your environment is setup:
 
 ```bash
 $> ./bin/run-prompts.sh \
-	-p veddis-eval-data/prompts \
-	-d veddis-eval-data/docs \
-	-g veddis-eval-data/responses > responses.jsonl
+	-p /data/prompts \
+	-d /data/documents \
+	-g /data/ground-truth > responses.jsonl
 ```
 
 This will produce `responses.jsonl`, a JSONL file detailing each
 prompt and the LLM's response. See `./bin/run-prompts.sh -h` for
-documentation and other options.
+documentation and other options, and to get a sense for which Python
+scripts within this repository are doing the work.
 
 ### Obtain LLM judgements to responses
 
 Once responses have been generated, they can be judged using an
-LLM. See `docs/prompts/evaluate` for the prompts used to do this. As
-with response generation, the process is done in two phases: generated
-judgement experiments, then interact with the LLM based on those
-experiment configurations.
+LLM. This process is taken care of by Python scripts in
+`src/evaluate`. The first step in evaluation is amend each response
+(each line in the response JSONL file) with its ground truth. Once
+that is complete, frameworks are engaged that judge the response.
 
-This process can be run from `bin/run-evals.sh` as
-follows. Environment and Veddis data from previous steps are still
-assumed to hold:
+There are currently two frameworks used for judgement:
+
+1. Custom OpenAI (`src/evaluate/openai_`): request an OpenAI model to
+   assess similarity using a custom user prompt. By default, the
+   OpenAI model that is used to judge is different from the model used
+   to respond.
+
+2. Deepeval (`src/evaluate/deepeval_`): Deepeval is an open source
+   framework used for LLM response evaluation.
+
+This process can be run from `bin/run-evals.sh` as follows:
 
 ```bash
-$> ./bin/run-evals.sh \
-	-g veddis-eval-data/responses \
-	< responses.jsonl \
-	> evaluations.jsonl
+$> ./bin/run-evals.sh -g /data/ground-truth < responses.jsonl > evaluations.jsonl
 ```
 
 This will produce `evaluations.jsonl`, a JSONL file that is a superset
@@ -132,4 +174,5 @@ $> ./bin/run-prompts.sh ... | ./bin/run-evals.sh > evaluations.jsonl
 ```
 
 without loss of information. See `./bin/run-evals.sh -h` for
-documentation and other options.
+documentation, other options, and insigh into the Python scripts that
+are doing the work.
