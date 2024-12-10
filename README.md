@@ -213,26 +213,26 @@ depends on which part of the pipeline produced the file; whether it
 was the response or the evaluation phase. Irrespective, each phase
 appends to a given line -- information is never overwritten.
 
-```json
+```python
 {
-  "system": str,          # system prompt: basename /data/prompts/system/file-n
-  "user": str,            # system prompt: basename /data/prompts/user/file-n
-  "docs": str,            # document set: (/data/documents/)method_1/instance_1
-  "sequence": int,        # response iteration
+  "system": str,         # system prompt: basename /data/prompts/system/file-n
+  "user": str,           # system prompt: basename /data/prompts/user/file-n
+  "docs": str,           # document set: (/data/documents/)method_1/instance_1
+  "sequence": int,       # response iteration
   "response": [
-	 {
-		"message": str,   # LLM response
-		"date": datetime  # Time when response was generated
-	 }
+    {
+       "message": str,  # LLM response
+       "date": datetime # Time when response was generated
+    }
   ],
-  "comparison": int,      # comparison iteration
-  "reference": str,       # ground truth: basename /data/ground-truth/user-1/file-1
+  "comparison": int,    # comparison iteration
+  "reference": str,     # ground truth: basename /data/ground-truth/user-1/file-1
   "judgement": [
-	 {
-		"method": str,    # Judgement platform
-		"score": float,   # LLM score
-		"support": Any    # Material supporting the judgement (platform dependent)
-	 },
+    {
+       "method": str,   # Judgement platform
+       "score": float,  # LLM score
+       "support": Any   # Material supporting the judgement (platform dependent)
+    }
   ]
 }
 ```
