@@ -113,6 +113,7 @@ The prompt phase takes each combination of
 * system prompt
 * user prompt
 * markdown docs
+* OpenAI models
 
 and generates completions from OpenAI File Search that are supported
 by the markdown files. By default, each user prompt is sent multiple
