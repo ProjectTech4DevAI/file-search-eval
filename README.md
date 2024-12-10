@@ -176,3 +176,31 @@ $> ./bin/run-prompts.sh ... | ./bin/run-evals.sh > evaluations.jsonl
 without loss of information. See `./bin/run-evals.sh -h` for
 documentation, other options, and insigh into the Python scripts that
 are doing the work.
+
+## Analysis
+
+Analysis can be conducted by parsing relevant information from the
+final evaluation JSON. Some basic analysis is included in this
+repository.
+
+First convert the JSONL into CSV:
+
+```bash
+$> tmp=`mktemp`
+$> python src/analysis/json-to-csv.py \
+       --name-length 5 \
+       --method gpt-4o-2024-08-06:custom \
+       < $evaluations.jsonl \
+       > $tmp
+```
+
+The options provided to `json-to-csv.py` shorten prompt names to five
+characters, and focus JSON filtering to the OpenAI
+judgements. Performance plots can be built using:
+
+```bash
+$> python src/analysis/plot-scores.py --output scores.png < $tmp
+$> mkdir responses
+$> python src/analysis/plot-responses.py --output responses < $tmp
+$> rm $tmp
+```
