@@ -31,7 +31,8 @@ if __name__ == '__main__':
         e = Experiment(*i)
         Logger.info(e)
 
-        config = dict(e)
-        config.update(extra)
+        Logger.info(e)
+        config = dict(extra)
+        config.update(e)
 
         print(json.dumps(config))
