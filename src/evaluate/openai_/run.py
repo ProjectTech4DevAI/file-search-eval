@@ -32,7 +32,7 @@ class SimilarityEvaluation(BaseModel):
 #
 #
 def message(prompt, config, args):
-    latest = config['response'][-1] # use the most recent response
+    latest = config['response'][args.response_index]
     response = ExperimentResponse(**latest)
     reference = (args
                  .ground_truth
@@ -93,6 +93,7 @@ if __name__ == '__main__':
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--low-score', type=int, default=1)
     arguments.add_argument('--high-score', type=int, default=5)
+    arguments.add_argument('--response-index', type=int, default=-1)
     arguments.add_argument('--model', default='gpt-4o-2024-08-06')
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()

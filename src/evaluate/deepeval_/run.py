@@ -55,8 +55,12 @@ def func(incoming, outgoing, args):
         user = config['user']
 
         prompt = args.user_prompt.joinpath(user)
-        gt = args.ground_truth.joinpath(user, config['reference']).read_text()
-        pr = ExperimentResponse(**config['response'][-1])
+        gt = (args
+              .ground_truth
+              .joinpath(user, config['reference'])
+              .read_text())
+        kwargs = config['response'][args.response_index]
+        pr = ExperimentResponse(**kwargs)
 
         judgement = evaluator(prompt, pr, gt)
         judgement = replace(judgement, method=_method)
@@ -71,6 +75,7 @@ if __name__ == '__main__':
     arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--deep-config', type=Path)
+    arguments.add_argument('--response-index', type=int, default=-1)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
