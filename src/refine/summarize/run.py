@@ -3,11 +3,12 @@ import time
 import json
 from pathlib import Path
 from argparse import ArgumentParser
+from dataclasses import asdict
 from multiprocessing import Pool, Queue
 
 from openai import OpenAI
 
-from mylib import Logger, ExperimentResponse
+from mylib import Logger, Experiment, ExperimentResponse
 
 def func(incoming, outgoing, args):
     client = OpenAI()
@@ -15,24 +16,24 @@ def func(incoming, outgoing, args):
 
     while True:
         sample = incoming.get()
+
         config = json.loads(sample)
         Logger.info(Experiment.stringify(config))
-
-        view = config['response'][args.response_index]
-        experiment = ExperimentResponse(**view)
+        view = config['response']
+        experiment = ExperimentResponse(**view[args.response_index])
 
         iterable = zip(('system', 'user'), (system, str(experiment)))
         messages = [ { 'role': x, 'content': y } for (x, y) in iterable ]
 
         t_start = time.perf_counter()
         response = client.chat.completions.create(
-            model=config['model'],
+            model=experiment.model,
             messages=messages,
         )
         t_end = time.perf_counter()
 
         message = response.choices[0].message.content
-        result = ExperimentResponse(message, t_end - t_start)
+        result = ExperimentResponse(message, experiment.model, t_end - t_start)
         view.append(asdict(result))
 
         outgoing.put(config)
