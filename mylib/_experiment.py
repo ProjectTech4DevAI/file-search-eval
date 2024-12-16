@@ -27,6 +27,7 @@ class Experiment:
 @dataclass(frozen=True)
 class ExperimentResponse:
     message: str
+    model: str
     latency: float # latency in seconds
     date: str = field(default_factory=lambda: time.strftime('%c'))
 
