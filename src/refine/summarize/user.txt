@@ -1,0 +1,5 @@
+Summarize the following passage into three sentences. Use no more than 50 words for your summary.
+
+"""
+$passage
+"""
