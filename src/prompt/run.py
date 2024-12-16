@@ -274,7 +274,7 @@ def func(incoming, outgoing, args):
         else:
             Logger.error('%s %s', job.config, run)
             result = ''
-        result = ExperimentResponse(result, t_end - t_start)
+        result = ExperimentResponse(result, job.model, t_end - t_start)
 
         #
         # Clean up
