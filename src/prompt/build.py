@@ -1,5 +1,6 @@
 import json
 import itertools as it
+import functools as ft
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import fields
@@ -11,14 +12,6 @@ def documents(path):
         for i in root.iterdir():
             yield i.relative_to(path)
 
-def exclusions(paths):
-    keys = (x.name for x in fields(Experiment))
-    for p in paths:
-        with p.open() as fp:
-            for line in fp:
-                sample = json.loads(line)
-                yield Experiment(**{ x: sample[x] for x in keys })
-
 def experiments(args):
     conditions = (
         args.system_prompts.iterdir(),
@@ -28,6 +21,35 @@ def experiments(args):
     )
 
     yield from it.starmap(Experiment, it.product(*conditions))
+
+class Excluder:
+    @staticmethod
+    def extract(paths):
+        keys = (x.name for x in fields(Experiment))
+        for p in paths:
+            with p.open() as fp:
+                for line in fp:
+                    sample = json.loads(line)
+                    kwargs = { x: sample[x] for x in keys }
+                    yield Experiment(**kwargs)
+
+    def __init__(self, exclusions):
+        self.exclusions = set()
+        if exclusions:
+            self.exclusions.update(self.extract(exclusions))
+
+    @ft.singledispatchmethod
+    def __contains__(self, item):
+        raise TypeError(type(item))
+
+    @__contains__.register
+    def _(self, item: dict):
+        e = Experiment(**item)
+        return e in self.exclusions
+
+    @__contains__.register
+    def _(self, item: Experiment):
+        return dict(item) in self
 
 #
 #
@@ -43,7 +65,7 @@ if __name__ == '__main__':
     args = arguments.parse_args()
 
     extra = dict(x.split(':') for x in args.extra_info)
-    ignore = set(exclusions(args.exclude))
+    ignore = Excluder(args.exclude)
 
     for e in experiments(args):
         if e in ignore:
