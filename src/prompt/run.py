@@ -257,10 +257,13 @@ def func(incoming, outgoing, args):
             role=user,
             content=reader(user),
         )
+
+        t_start = time.perf_counter()
         run = client.beta.threads.runs.create_and_poll(
             thread_id=thread.id,
             assistant_id=job.resource.assistant,
         )
+        t_end = time.perf_counter()
 
         if run.status == 'completed':
             response = client.beta.threads.messages.list(
@@ -271,7 +274,7 @@ def func(incoming, outgoing, args):
         else:
             Logger.error('%s %s', job.config, run)
             result = ''
-        result = ExperimentResponse(result)
+        result = ExperimentResponse(result, t_end - t_start)
 
         #
         # Clean up
