@@ -28,6 +28,14 @@ class SimilarityEvaluation(BaseModel):
     details: str
     score: int
 
+class ScoreScaler:
+    def __init__(self, low, high):
+        self.low = low
+        self.scale = high - self.low
+
+    def __call__(self, value):
+        return (value - self.low) / self.scale
+
 #
 #
 #
@@ -51,6 +59,7 @@ def message(prompt, config, args):
 #
 #
 def func(incoming, outgoing, args):
+    scale = ScoreScaler(args.low_score, args.high_score)
     client = OpenAI()
     method = f'{args.model}:custom'
 
@@ -79,7 +88,7 @@ def func(incoming, outgoing, args):
                 .parsed
                 .model_dump())
         score = body.pop('score')
-        judgement = ResponseJudgement(method, score, body)
+        judgement = ResponseJudgement(method, scale(score), body)
 
         record = config.setdefault('judgement', [])
         record.append(asdict(judgement))
