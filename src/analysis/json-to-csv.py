@@ -47,7 +47,6 @@ def parse(collection):
         yield (k, v)
 
 def func(incoming, outgoing, args):
-    handler = ScoreHandler(args.method)
     prompts = (
         'system',
         'user',
@@ -58,24 +57,29 @@ def func(incoming, outgoing, args):
         # Logger.info(result)
 
         data = json.loads(result)
+        view = dict(parse(data))
+
         if args.name_length is not None:
             for i in prompts:
                 data[i] = data[i][:args.name_length]
-            docs = Path(data['docs'])
-            docs = docs.parent.joinpath(docs.name[:args.name_length])
-            data['docs'] = str(docs)
-        score = handler(data['judgement'])
 
-        outgoing.put(dict(parse(data), score=score))
+        records = []
+        for j in data['judgement']:
+            response = ResponseJudgement(**j)
+            rec = dict(view)
+            rec.update({
+                'method': response.method,
+                'score': response.score,
+            })
+            records.append(rec)
+
+        outgoing.put(records)
 
 #
 #
 #
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--method', choices=[
-        'gpt-4o-2024-08-06:custom',
-    ])
     arguments.add_argument('--name-length', type=int)
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
@@ -96,8 +100,8 @@ if __name__ == '__main__':
 
         writer = None
         for _ in range(jobs):
-            row = incoming.get()
+            rows = incoming.get()
             if writer is None:
-                writer = csv.DictWriter(sys.stdout, fieldnames=row)
+                writer = csv.DictWriter(sys.stdout, fieldnames=rows[0])
                 writer.writeheader()
-            writer.writerow(row)
+            writer.writerows(rows)
