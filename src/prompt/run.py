@@ -2,7 +2,6 @@ import sys
 import json
 import time
 import operator as op
-import collections as cl
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, asdict
