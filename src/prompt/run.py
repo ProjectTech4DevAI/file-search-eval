@@ -28,6 +28,21 @@ class Job:
 #
 #
 #
+def vs_ls(vector_store_id, client):
+    kwargs = {}
+    while True:
+        page = client.beta.vector_stores.files.list(
+            vector_store_id=vector_store_id,
+            **kwargs,
+        )
+        yield from page
+        if not page.has_more:
+            break
+        kwargs['after'] = page.last_id
+
+#
+#
+#
 class PromptReader:
     def __init__(self, config, root):
         self.config = config
@@ -80,17 +95,8 @@ class AssistantCleaner(ResourceCleaner):
 
 class VectorStoreCleaner(ResourceCleaner):
     def clean(self, client):
-        kwargs = {}
-        while True:
-            page = client.beta.vector_stores.files.list(
-                vector_store_id=self.resource,
-                **kwargs,
-            )
-            for file_ in page:
-                client.files.delete(file_.id)
-            if not page.has_more:
-                break
-            kwargs['after'] = page.last_id
+        for i in vs_ls(self.resource, client):
+            client.files.delete(i.id)
         client.beta.vector_stores.delete(self.resource)
 
 #
@@ -123,13 +129,11 @@ class VectorStoreCreator(ResourceCreator):
             yield batch
 
     def create(self, config, **kwargs):
-        vector_store = self.client.beta.vector_stores.create()
-        vector_store_cleaner = VectorStoreCleaner(vector_store.id)
-
         documents = self.args.document_root.joinpath(config['docs'])
+        vector_store = self.client.beta.vector_stores.create()
+
         for paths in self.ls(documents, self.args.upload_batch_size):
-            nfiles = len(paths)
-            Logger.info('Uploading %d', nfiles)
+            Logger.info('Uploading %d', len(paths))
 
             files = [ x.open('rb') for x in paths ]
             file_batch = (self
@@ -142,16 +146,31 @@ class VectorStoreCreator(ResourceCreator):
                           ))
             for i in files:
                 i.close()
-
-            if file_batch.file_counts.completed != nfiles:
-                vector_store_cleaner(self.client, self.args.cleanup_attempts)
-                msg = 'Failure "upload_and_poll": uploaded {} of {}'.format(
-                    file_batch.file_counts,
-                    nfiles,
-                )
-                raise IndexError(msg)
+            self.raise_for_status(file_batch, vector_store, paths)
 
         return vector_store
+
+    def raise_for_status(self, response, vector_store, paths):
+        assert response.file_counts.total == len(paths)
+
+        if response.file_counts.completed != response.file_counts.total:
+            paths = { str(x.name): x for x in paths }
+
+            for i in vs_ls(vector_store.id, self.client):
+                if i.last_error is None:
+                    document = self.client.files.retrieve(i.id)
+                    paths.pop(document.filename)
+            for i in paths.values():
+                Logger.error('Upload error: %s', i)
+
+            vector_store_cleaner = VectorStoreCleaner(vector_store.id)
+            vector_store_cleaner(self.client, self.args.cleanup_attempts)
+
+            raise IndexError('Upload failure ({} of {}): {}'.format(
+                response.file_counts.failed,
+                response.file_counts.total,
+                ', '.join(map(str, paths.values())),
+            ))
 
 class AssistantCreator(ResourceCreator):
     _kwargs = (
