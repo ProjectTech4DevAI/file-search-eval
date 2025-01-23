@@ -57,12 +57,11 @@ def func(incoming, outgoing, args):
         # Logger.info(result)
 
         data = json.loads(result)
-        view = dict(parse(data))
-
         if args.name_length is not None:
             for i in prompts:
                 data[i] = data[i][:args.name_length]
 
+        view = dict(parse(data))
         records = []
         for j in data['judgement']:
             response = ResponseJudgement(**j)
