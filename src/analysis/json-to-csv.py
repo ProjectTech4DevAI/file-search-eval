@@ -48,7 +48,7 @@ def parse(collection):
 
 def func(incoming, outgoing, args):
     prompts = (
-        'system',
+        # 'system',
         'user',
     )
 
