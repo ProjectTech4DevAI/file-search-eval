@@ -2,14 +2,23 @@ import sys
 import operator as op
 from pathlib import Path
 from argparse import ArgumentParser
+from dataclasses import dataclass, fields, astuple
 
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
+@dataclass
+class GroupKey:
+    docs: str
+    method: str
+
+    def to_path(self):
+        parts = (x.replace('/', '_') for x in astuple(self))
+        return Path(*parts)
+
 if __name__ == '__main__':
     arguments = ArgumentParser()
-    arguments.add_argument('--model')
     arguments.add_argument('--output', type=Path)
     arguments.add_argument('--lowest-score', type=int, default=0)
     arguments.add_argument('--highest-score', type=int, default=1)
@@ -21,7 +30,6 @@ if __name__ == '__main__':
         'y': y,
         'hue': 'system',
     }
-    xlabel = '' if args.model is None else args.model + ' '
 
     iterable = (
         (op.sub, args.lowest_score),
@@ -30,11 +38,16 @@ if __name__ == '__main__':
     xlim = [ x(y, 0.1) for (x, y) in iterable ]
 
     df = pd.read_csv(sys.stdin)
-    for (d, g) in df.groupby('docs', sort=False):
+    by = [ x.name for x in fields(GroupKey) ]
+    for (i, g) in df.groupby(by, sort=False):
+        key = GroupKey(*i)
+
         output = (args
                   .output
-                  .joinpath(d.replace('/', '_'))
+                  .joinpath(key.to_path())
                   .with_suffix('.png'))
+        output.parent.mkdir(parents=True, exist_ok=True)
+
         data = (g
                 .groupby(list(components.values()), sort=False)[x]
                 .mean()
@@ -52,12 +65,12 @@ if __name__ == '__main__':
             **components,
         )
 
-        plt.xlabel(f'{xlabel}score')
+        plt.xlabel(f'score ({key.method})')
         plt.ylabel('User prompt')
         plt.xlim(*xlim)
         plt.grid(visible=True, axis='both', alpha=0.25, linestyle='dotted')
         plt.legend(title='System prompt')
-        plt.title(d)
+        plt.title(key.docs)
         plt.axvline(
             x=g[x].mean(),
             color='black',
