@@ -42,6 +42,9 @@ class ScoreScaler:
 def message(prompt, config, args):
     latest = config['response'][args.response_index]
     response = ExperimentResponse(**latest)
+    if not response:
+        raise ValueError('NULL response')
+
     reference = (args
                  .ground_truth
                  .joinpath(config['user'], config['reference'])
@@ -74,7 +77,15 @@ def func(incoming, outgoing, args):
         sample = incoming.get()
 
         config = json.loads(sample)
-        Logger.info(Experiment.stringify(config))
+        c_string = Experiment.stringify(config)
+        try:
+            user = message(prompt, config, args)
+        except ValueError as err:
+            Logger.error('%s %s', c_string, err)
+            outgoing.put(None)
+            continue
+
+        Logger.info(c_string)
         messages[-1] = asdict(message(prompt, config, args))
 
         response = client.beta.chat.completions.parse(
@@ -123,4 +134,5 @@ if __name__ == '__main__':
 
         for _ in range(jobs):
             result = incoming.get()
-            print(json.dumps(result))
+            if result is not None:
+                print(json.dumps(result))

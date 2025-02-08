@@ -34,6 +34,9 @@ class ExperimentResponse:
     def __str__(self):
         return self.message
 
+    def __bool__(self):
+        return bool(str(self))
+
 @dataclass(frozen=True)
 class ResponseJudgement:
     method: str

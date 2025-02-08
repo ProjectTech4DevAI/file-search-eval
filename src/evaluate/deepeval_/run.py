@@ -25,6 +25,8 @@ class DeepEvaluation:
         self.kwargs['evaluation_params'] = self._evaluation_params
 
     def __call__(self, prompt, pr, gt):
+        if not pr:
+            raise ValueError('NULL response')
         g_eval = GEval(**self.kwargs)
         test = LLMTestCase(
             input=prompt,
