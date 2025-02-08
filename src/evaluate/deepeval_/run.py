@@ -51,7 +51,8 @@ def func(incoming, outgoing, args):
         sample = incoming.get()
 
         config = json.loads(sample)
-        Logger.info(Experiment.stringify(config))
+        c_string = Experiment.stringify(config)
+        Logger.info(cstring)
         user = config['user']
 
         prompt = args.user_prompt.joinpath(user)
@@ -62,7 +63,13 @@ def func(incoming, outgoing, args):
         kwargs = config['response'][args.response_index]
         pr = ExperimentResponse(**kwargs)
 
-        judgement = evaluator(prompt, pr, gt)
+        try:
+            judgement = evaluator(prompt, pr, gt)
+        except ValueError as err:
+            Logging.error('%s: %s', c_string, err)
+            outgoing.put(None)
+            continue
+
         judgement = replace(judgement, method=_method)
 
         record = config.setdefault('judgement', [])
@@ -95,4 +102,5 @@ if __name__ == '__main__':
 
         for _ in range(jobs):
             result = incoming.get()
-            print(json.dumps(result))
+            if result is not None:
+                print(json.dumps(result))
