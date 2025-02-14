@@ -33,7 +33,7 @@ class DeepEvaluation:
             actual_output=pr,
             expected_output=gt,
         )
-        g_eval.measure(test)
+        g_eval.measure(test, _show_indicator=False)
 
         return ResponseJudgement(None, g_eval.score, g_eval.reason)
 
@@ -66,7 +66,7 @@ def func(incoming, outgoing, args):
         pr = ExperimentResponse(**kwargs)
 
         try:
-            judgement = evaluator(prompt, pr, gt, show_indicator=False)
+            judgement = evaluator(prompt, pr, gt)
         except ValueError as err:
             Logger.error('%s: %s', c_string, err)
             outgoing.put(None)
