@@ -68,7 +68,7 @@ def func(incoming, outgoing, args):
         try:
             judgement = evaluator(prompt, pr, gt)
         except ValueError as err:
-            Logging.error('%s: %s', c_string, err)
+            Logger.error('%s: %s', c_string, err)
             outgoing.put(None)
             continue
 
