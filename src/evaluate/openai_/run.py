@@ -70,7 +70,7 @@ def func(incoming, outgoing, args):
     system = Message('system', args.system_prompt.read_text())
     messages = [
         asdict(system),
-        None,
+        None, # reserved for the user message
     ]
 
     while True:
@@ -86,7 +86,7 @@ def func(incoming, outgoing, args):
             continue
 
         Logger.info(c_string)
-        messages[-1] = asdict(message(prompt, config, args))
+        messages[-1] = asdict(user) # add after the system message
 
         response = client.beta.chat.completions.parse(
             model=args.model,
