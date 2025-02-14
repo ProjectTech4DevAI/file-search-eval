@@ -66,7 +66,7 @@ def func(incoming, outgoing, args):
         pr = ExperimentResponse(**kwargs)
 
         try:
-            judgement = evaluator(prompt, pr, gt)
+            judgement = evaluator(prompt, pr, gt, show_indicator=False)
         except ValueError as err:
             Logger.error('%s: %s', c_string, err)
             outgoing.put(None)
