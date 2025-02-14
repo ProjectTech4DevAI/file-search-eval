@@ -54,7 +54,7 @@ def func(incoming, outgoing, args):
 
         config = json.loads(sample)
         c_string = Experiment.stringify(config)
-        Logger.info(cstring)
+        Logger.info(c_string)
         user = config['user']
 
         prompt = args.user_prompt.joinpath(user)
