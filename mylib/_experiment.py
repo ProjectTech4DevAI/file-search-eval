@@ -32,7 +32,7 @@ class ExperimentResponse:
     date: str = field(default_factory=lambda: time.strftime('%c'))
 
     def __str__(self):
-        return self.message
+        return '' if self.message is None else self.message
 
     def __bool__(self):
         return bool(str(self))
