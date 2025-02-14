@@ -10,4 +10,7 @@ logging.basicConfig(
     level=os.getenv('PYTHONLOGLEVEL', 'WARNING').upper(),
 )
 logging.captureWarnings(True)
+for i in ('openai', 'httpx'):
+    logging.getLogger(i).setLevel(logging.ERROR)
+
 Logger = logging.getLogger(__name__)
