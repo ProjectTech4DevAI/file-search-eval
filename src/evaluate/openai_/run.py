@@ -36,6 +36,24 @@ class ScoreScaler:
     def __call__(self, value):
         return (value - self.low) / self.scale
 
+class ResponseExtractor:
+    def __init__(self, r_id=None):
+        self.r_id = r_id
+
+    def __getitem__(self, item):
+        for r in reversed(item):
+            if self.r_id is None or r['response_id'] == self.r_id:
+                return ExperimentResponse(**r)
+
+        raise LookupError(self.r_id)
+
+    def __call__(self, response):
+        experiment = self[response]
+        if not experiment:
+            raise ValueError('NULL response')
+
+        return experiment
+
 #
 #
 #
@@ -52,30 +70,6 @@ def message(prompt, response, gt):
 
     return Message('user', content)
 
-#
-#
-#
-class ResponseHandler:
-    def __init__(self, config):
-        self.config = config
-
-    def __str__(self):
-        return Experiment.stringify(self.config)
-
-    def __getitem__(self, item):
-        for r in reversed(self.config['response']):
-            if item is None or r['response_id'] == item:
-                return r
-
-        raise LookupError(item)
-
-    def get(self, r_id=None):
-        experiment = ExperimentResponse(**self[r_id])
-        if not experiment:
-            raise ValueError('NULL response')
-
-        return experiment
-
 def func(incoming, outgoing, args):
     scale = ScoreScaler(args.low_score, args.high_score)
     client = OpenAI()
@@ -88,18 +82,20 @@ def func(incoming, outgoing, args):
         None, # reserved for the user message
     ]
 
+    extractor = ResponseExtractor(args.response_id)
+
     while True:
         sample = incoming.get()
         config = json.loads(sample)
 
-        handler = ResponseHandler(config)
+        experiment = Experiment.stringify(config)
         try:
-            response = handler.get(args.response_id)
+            response = extractor(config['response'])
         except (LookupError, ValueError) as err:
-            Logger.error('%s %s', handler, err)
+            Logger.error('%s %s', experiment, err)
             outgoing.put(None)
             continue
-        Logger.info(handler)
+        Logger.info(experiment)
 
         user = message(prompt, response, args.ground_truth)
         messages[-1] = asdict(user) # add after the system message
