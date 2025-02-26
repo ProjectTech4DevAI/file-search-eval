@@ -48,3 +48,21 @@ class ResponseJudgement:
     method: str
     score: float
     support: Any
+
+class ResponseExtractor:
+    def __init__(self, r_id=None):
+        self.r_id = r_id
+
+    def __getitem__(self, item):
+        for r in reversed(item):
+            if self.r_id is None or r['response_id'] == self.r_id:
+                return ExperimentResponse(**r)
+
+        raise LookupError(self.r_id)
+
+    def __call__(self, response):
+        experiment = self[response]
+        if not experiment:
+            raise ValueError('NULL response')
+
+        return experiment

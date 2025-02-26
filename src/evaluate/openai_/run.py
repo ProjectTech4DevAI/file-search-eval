@@ -9,7 +9,13 @@ from multiprocessing import Pool, Queue
 from openai import OpenAI
 from pydantic import BaseModel
 
-from mylib import Logger, Experiment, ExperimentResponse, ResponseJudgement
+from mylib import (
+    Logger,
+    Experiment,
+    ExperimentResponse,
+    ResponseJudgement,
+    ResponseExtractor:
+)
 
 #
 #
@@ -35,24 +41,6 @@ class ScoreScaler:
 
     def __call__(self, value):
         return (value - self.low) / self.scale
-
-class ResponseExtractor:
-    def __init__(self, r_id=None):
-        self.r_id = r_id
-
-    def __getitem__(self, item):
-        for r in reversed(item):
-            if self.r_id is None or r['response_id'] == self.r_id:
-                return ExperimentResponse(**r)
-
-        raise LookupError(self.r_id)
-
-    def __call__(self, response):
-        experiment = self[response]
-        if not experiment:
-            raise ValueError('NULL response')
-
-        return experiment
 
 #
 #
