@@ -1,4 +1,5 @@
 import time
+from uuid import uuid4
 from typing import Any
 from pathlib import Path
 from dataclasses import dataclass, asdict, field, fields
@@ -29,16 +30,21 @@ class ExperimentResponse:
     message: str
     model: str
     latency: float # latency in seconds
+    response_id: str = field(default_factory=lambda: str(uuid4()))
     date: str = field(default_factory=lambda: time.strftime('%c'))
 
     def __str__(self):
         return '' if self.message is None else self.message
+
+    def __repr__(self):
+        return self.response_id
 
     def __bool__(self):
         return bool(str(self))
 
 @dataclass(frozen=True)
 class ResponseJudgement:
+    response_id: str
     method: str
     score: float
     support: Any
