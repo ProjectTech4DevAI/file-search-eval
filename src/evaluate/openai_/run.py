@@ -39,14 +39,8 @@ class ScoreScaler:
 #
 #
 #
-def message(prompt, config, args):
-    latest = config['response'][args.response_index]
-    response = ExperimentResponse(**latest)
-    if not response:
-        raise ValueError('NULL response')
-
-    reference = (args
-                 .ground_truth
+def message(prompt, response, gt):
+    reference = (gt
                  .joinpath(config['user'], config['reference'])
                  .read_text())
     content = prompt.substitute(
@@ -61,6 +55,27 @@ def message(prompt, config, args):
 #
 #
 #
+class ResponseHandler:
+    def __init__(self, config):
+        self.config = config
+
+    def __str__(self):
+        return Experiment.stringify(self.config)
+
+    def __getitem__(self, item):
+        for r in reversed(self.config['response']):
+            if item is None or r['response_id'] == item:
+                return r
+
+        raise LookupError(item)
+
+    def get(self, r_id=None):
+        experiment = ExperimentResponse(**self[r_id])
+        if not experiment:
+            raise ValueError('NULL response')
+
+        return experiment
+
 def func(incoming, outgoing, args):
     scale = ScoreScaler(args.low_score, args.high_score)
     client = OpenAI()
@@ -75,31 +90,36 @@ def func(incoming, outgoing, args):
 
     while True:
         sample = incoming.get()
-
         config = json.loads(sample)
-        c_string = Experiment.stringify(config)
+
+        handler = ResponseHandler(config)
         try:
-            user = message(prompt, config, args)
-        except ValueError as err:
-            Logger.error('%s %s', c_string, err)
+            response = handler.get(args.response_id)
+        except (LookupError, ValueError) as err:
+            Logger.error('%s %s', handler, err)
             outgoing.put(None)
             continue
+        Logger.info(handler)
 
-        Logger.info(c_string)
+        user = message(prompt, response, args.ground_truth)
         messages[-1] = asdict(user) # add after the system message
-
-        response = client.beta.chat.completions.parse(
+        completion = client.beta.chat.completions.parse(
             model=args.model,
             messages=messages,
             response_format=SimilarityEvaluation,
         )
-        body = (response
+        body = (completion
                 .choices[0]
                 .message
                 .parsed
                 .model_dump())
         score = body.pop('score')
-        judgement = ResponseJudgement(method, scale(score), body)
+        judgement = ResponseJudgement(
+            repr(response),
+            method,
+            scale(score),
+            body,
+        )
 
         record = config.setdefault('judgement', [])
         record.append(asdict(judgement))
@@ -113,7 +133,7 @@ if __name__ == '__main__':
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--low-score', type=int, default=1)
     arguments.add_argument('--high-score', type=int, default=5)
-    arguments.add_argument('--response-index', type=int, default=-1)
+    arguments.add_argument('--response-id', type=int)
     arguments.add_argument('--model', default='gpt-4o-2024-08-06')
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
