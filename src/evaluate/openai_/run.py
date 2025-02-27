@@ -12,9 +12,8 @@ from pydantic import BaseModel
 from mylib import (
     Logger,
     Experiment,
-    ExperimentResponse,
     ResponseJudgement,
-    ResponseExtractor:
+    ResponseExtractor,
 )
 
 #
