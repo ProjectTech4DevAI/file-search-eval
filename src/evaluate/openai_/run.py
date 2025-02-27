@@ -114,7 +114,7 @@ if __name__ == '__main__':
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--low-score', type=int, default=1)
     arguments.add_argument('--high-score', type=int, default=5)
-    arguments.add_argument('--response-id', type=int)
+    arguments.add_argument('--response-id')
     arguments.add_argument('--model', default='gpt-4o-2024-08-06')
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
