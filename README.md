@@ -9,7 +9,7 @@ This repository automates OpenAI File Search testing.
 1. Ensure your OpenAI key is in the environment
 
    ```bash
-   $> export OPENAI_API_KEY=...
+   export OPENAI_API_KEY=...
    ```
 
 2. Ensure you have a proper Python environment. If you do not have the
@@ -17,21 +17,21 @@ This repository automates OpenAI File Search testing.
    virtual one:
 
    ```bash
-   $> python -m venv venv
-   $> source venv/bin/activate
-   $> pip install -r requirements.txt
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
    ```
 
 3. Update your Python path
 
    ```bash
-   $> export PYTHONPATH=`git rev-parse --show-toplevel`:$PYTHONPATH
+   export PYTHONPATH=`git rev-parse --show-toplevel`:$PYTHONPATH
    ```
 
 4. (Optional) Set the Python log level:
 
    ```bash
-   $> export PYTHONLOGLEVEL=info
+   export PYTHONLOGLEVEL=info
    ```
 
    The default level is "warning", however most of the scripts produce
@@ -130,10 +130,10 @@ The entire process can be run from `bin/run-prompts.sh` as
 follows. Assuming your environment is setup:
 
 ```bash
-$> ./bin/run-prompts.sh \
-	-p /data/prompts \
-	-d /data/documents \
-	-g /data/ground-truth > responses.jsonl
+./bin/run-prompts.sh \
+     -p /data/prompts \
+     -d /data/documents \
+     -g /data/ground-truth > responses.jsonl
 ```
 
 This will produce `responses.jsonl`, a JSONL file detailing each
@@ -162,7 +162,7 @@ There are currently two frameworks used for judgement:
 This process can be run from `bin/run-evals.sh` as follows:
 
 ```bash
-$> ./bin/run-evals.sh -g /data/ground-truth < responses.jsonl > evaluations.jsonl
+./bin/run-evals.sh -g /data/ground-truth < responses.jsonl > evaluations.jsonl
 ```
 
 This will produce `evaluations.jsonl`, a JSONL file that is a super set
@@ -171,7 +171,7 @@ response, in addition to the output of the judgement. As such, the two
 commands can be piped together:
 
 ```bash
-$> ./bin/run-prompts.sh ... | ./bin/run-evals.sh > evaluations.jsonl
+./bin/run-prompts.sh ... | ./bin/run-evals.sh > evaluations.jsonl
 ```
 
 without loss of information. See `./bin/run-evals.sh -h` for
@@ -187,12 +187,12 @@ repository.
 First convert the JSONL into CSV:
 
 ```bash
-$> tmp=`mktemp`
-$> python src/analysis/json-to-csv.py \
-       --name-length 5 \
-       --method gpt-4o-2024-08-06:custom \
-       < $evaluations.jsonl \
-       > $tmp
+tmp=`mktemp`
+python src/analysis/json-to-csv.py \
+    --name-length 5 \
+    --method gpt-4o-2024-08-06:custom \
+    < $evaluations.jsonl \
+    > $tmp
 ```
 
 The options provided to `json-to-csv.py` shorten prompt names to five
@@ -200,10 +200,10 @@ characters, and focus JSON filtering to the OpenAI
 judgements. Performance plots can be built using:
 
 ```bash
-$> python src/analysis/plot-scores.py --output scores.png < $tmp
-$> mkdir responses
-$> python src/analysis/plot-responses.py --output responses < $tmp
-$> rm $tmp
+python src/analysis/plot-scores.py --output scores.png < $tmp
+mkdir responses
+python src/analysis/plot-responses.py --output responses < $tmp
+rm $tmp
 ```
 
 ## Output format
