@@ -49,15 +49,15 @@ system prompts are expected to live under a common directory:
 ```
 /data/prompts/
 ├── system
-│   ├── file-1
-│   ├── file-2
+│   ├── system-file-1
+│   ├── system-file-2
 │   ├── ...
-│   └── file-n
+│   └── system-file-n
 └── user
-    ├── file-1
-    ├── file-2
+    ├── user-file-1
+    ├── user-file-2
     ├── ...
-    └── file-n
+    └── user-file-n
 ```
 
 #### Vector store documents
@@ -85,21 +85,21 @@ Responses that are deemed to be "correct" should be stored as follows:
 
 ```
 /data/ground-truth
-├── user-1
+├── user-file-1
 │   ├── file-1
 │   ├── file-2
 │   ├── ...
 │   └── file-n
-└── user-2
+└── user-file-2
     ├── file-1
     ├── file-2
     ├── ...
     └── file-n
 ```
 
-Where `user-n` is the basename of the user prompt, and `file-n` is an
-arbitrary file name. It is imperative that the `user-n` names be
-present in the `/data/prompts/user`.
+Where `user-file-n` is the basename of the user prompt, and `file-n`
+is an arbitrary file name. It is imperative that the `user-file-n`
+names be present in the `/data/prompts/user`.
 
 ## Run
 
