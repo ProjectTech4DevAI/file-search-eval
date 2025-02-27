@@ -2,31 +2,36 @@ import sys
 import json
 from pathlib import Path
 from argparse import ArgumentParser
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from multiprocessing import Pool, Queue
 
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
-from mylib import Logger, Experiment, ExperimentResponse, ResponseJudgement
+from mylib import (
+    Logger,
+    Experiment,
+    ResponseExtractor,
+    ResponseJudgement,
+)
+
 
 #
 #
 #
 class DeepEvaluation:
+    _method = 'deepeval:geval'
     _evaluation_params = [
         LLMTestCaseParams.INPUT,
         LLMTestCaseParams.ACTUAL_OUTPUT,
         LLMTestCaseParams.EXPECTED_OUTPUT,
     ]
 
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
+    def __init__(self, config):
+        self.kwargs = json.loads(config.read_text())
         self.kwargs['evaluation_params'] = self._evaluation_params
 
     def __call__(self, prompt, pr, gt):
-        if not pr:
-            raise ValueError('NULL response')
         g_eval = GEval(**self.kwargs)
         test = LLMTestCase(
             input=prompt,
@@ -35,44 +40,40 @@ class DeepEvaluation:
         )
         g_eval.measure(test, _show_indicator=False)
 
-        return ResponseJudgement(None, g_eval.score, g_eval.reason)
-
-    @classmethod
-    def from_config(cls, config):
-        kwargs = json.loads(config.read_text())
-        return cls(**kwargs)
+        return ResponseJudgement(
+            repr(pr),
+            self._method,
+            g_eval.score,
+            g_eval.reason,
+        )
 
 #
 #
 #
 def func(incoming, outgoing, args):
-    _method = 'deepeval:geval'
-    evaluator = DeepEvaluation.from_config(args.deep_config)
+    evaluator = DeepEvaluation(args.deep_config)
+    extractor = ResponseExtractor(args.response_id)
 
     while True:
         sample = incoming.get()
-
         config = json.loads(sample)
-        c_string = Experiment.stringify(config)
-        Logger.info(c_string)
-        user = config['user']
 
+        user = config['user']
         prompt = args.user_prompt.joinpath(user)
         gt = (args
               .ground_truth
               .joinpath(user, config['reference'])
               .read_text())
-        kwargs = config['response'][args.response_index]
-        pr = ExperimentResponse(**kwargs)
 
+        experiment = Experiment.stringify(config)
         try:
+            pr = extractor(config['response'])
             judgement = evaluator(prompt, pr, gt)
-        except ValueError as err:
-            Logger.error('%s: %s', c_string, err)
+        except (LookupError, ValueError) as err:
+            Logger.error('%s: %s', experiment, err)
             outgoing.put(None)
             continue
-
-        judgement = replace(judgement, method=_method)
+        Logger.info(experiment)
 
         record = config.setdefault('judgement', [])
         record.append(asdict(judgement))
@@ -84,7 +85,7 @@ if __name__ == '__main__':
     arguments.add_argument('--user-prompt', type=Path)
     arguments.add_argument('--ground-truth', type=Path)
     arguments.add_argument('--deep-config', type=Path)
-    arguments.add_argument('--response-index', type=int, default=-1)
+    arguments.add_argument('--response-id')
     arguments.add_argument('--workers', type=int)
     args = arguments.parse_args()
 
