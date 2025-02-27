@@ -56,12 +56,12 @@ class ResponseExtractor:
     def __getitem__(self, item):
         for r in reversed(item):
             if self.r_id is None or r['response_id'] == self.r_id:
-                return ExperimentResponse(**r)
+                return r
 
         raise LookupError(self.r_id)
 
     def __call__(self, response):
-        experiment = self[response]
+        experiment = ExperimentResponse(**self[response])
         if not experiment:
             raise ValueError('NULL response')
 
