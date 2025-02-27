@@ -12,9 +12,9 @@ This repository automates OpenAI File Search testing.
    export OPENAI_API_KEY=...
    ```
 
-2. Ensure you have a proper Python environment. If you do not have the
-   packages required in your default environment, consider creating a
-   virtual one:
+2. Ensure you have a proper Python environment. Your Python version
+   should be 3.10 or above. If you do not have the packages required
+   in your default environment, consider creating a virtual one:
 
    ```bash
    python -m venv venv

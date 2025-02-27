@@ -7,11 +7,12 @@ export PYTHONPATH=$ROOT
 _repetition=3
 _src=$ROOT/src/evaluate
 
-while getopts 'g:p:n:h' option; do
+while getopts 'g:p:n:w:h' option; do
     case $option in
 	g) _gt="--ground-truth $OPTARG" ;;
 	p) _prompts=$OPTARG ;;
 	n) _repetition=$OPTARG ;;
+	w) _workers="--workers $OPTARG" ;;
         h)
             cat <<EOF
 Usage: $0
@@ -27,11 +28,16 @@ EOF
     esac
 done
 
+params=(
+    $_gt
+    $_workers
+)
+
 python $_src/build.py $_gt \
        --repetition $_repetition \
-    | python $_src/openai_/run.py $_gt \
+    | python $_src/openai_/run.py ${params[@]} \
 	     --user-prompt $_src/openai_/user.txt \
 	     --system-prompt $_src/openai_/system.txt \
-    | python $_src/deepeval_/run.py $_gt \
+    | python $_src/deepeval_/run.py ${params[@]} \
 	     --user-prompt $_prompts/user \
 	     --deep-config $_src/deepeval_/geval.json
