@@ -44,19 +44,6 @@ class ScoreScaler:
 #
 #
 #
-def message(prompt, response, gt):
-    reference = (gt
-                 .joinpath(config['user'], config['reference'])
-                 .read_text())
-    content = prompt.substitute(
-        response=str(response),
-        reference=reference,
-        lower=args.low_score,
-        upper=args.high_score,
-    )
-
-    return Message('user', content)
-
 def func(incoming, outgoing, args):
     scale = ScoreScaler(args.low_score, args.high_score)
     client = OpenAI()
@@ -84,7 +71,18 @@ def func(incoming, outgoing, args):
             continue
         Logger.info(experiment)
 
-        user = message(prompt, response, args.ground_truth)
+        reference = (args
+                     .ground_truth
+                     .joinpath(config['user'], config['reference'])
+                     .read_text())
+        content = prompt.substitute(
+            response=str(response),
+            reference=reference,
+            lower=args.low_score,
+            upper=args.high_score,
+        )
+        user = Message('user', content)
+
         messages[-1] = asdict(user) # add after the system message
         completion = client.beta.chat.completions.parse(
             model=args.model,
