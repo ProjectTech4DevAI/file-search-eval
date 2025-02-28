@@ -65,7 +65,7 @@ if __name__ == '__main__':
             **components,
         )
 
-        plt.xlabel(f'score ({key.method})')
+        plt.xlabel(f'Score ({key.method})')
         plt.ylabel('User prompt')
         plt.xlim(*xlim)
         plt.grid(visible=True, axis='both', alpha=0.25, linestyle='dotted')
