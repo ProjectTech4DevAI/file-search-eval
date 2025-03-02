@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib.ticker import NullFormatter, MultipleLocator
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
