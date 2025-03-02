@@ -26,6 +26,8 @@ def func(incoming, outgoing, args):
         Logger.info(group)
 
         for l in letters:
+            if args.seed is not None:
+                args.seed += 1
             records = (df
                        .sample(frac=1, random_state=args.seed)
                        .drop_duplicates(subset='user')
