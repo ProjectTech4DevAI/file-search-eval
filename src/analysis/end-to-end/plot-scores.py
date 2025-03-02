@@ -10,42 +10,25 @@ from matplotlib.ticker import NullFormatter, MultipleLocator
 if __name__ == '__main__':
     arguments = ArgumentParser()
     arguments.add_argument('--output', type=Path)
-    arguments.add_argument('--lowest-score', type=int, default=0)
-    arguments.add_argument('--highest-score', type=int, default=1)
     args = arguments.parse_args()
 
-    docs = 'docs'
     df = pd.read_csv(sys.stdin)
-    hue_order = sorted(df[docs].unique())
+    assert df['method'].nunique() == 1
 
-    groups = df.groupby('method', sort=False)
-    (fig, axes) = plt.subplots(
-        nrows=groups.ngroups,
-        # sharex=True,
-        gridspec_kw={
-            'hspace': 0.4,
-        },
+    ax = sns.barplot(
+        x='score',
+        y='system',
+        hue='docs',
+        data=df,
     )
 
-    for (i, (ax, (m, g))) in enumerate(zip(axes, groups), 1):
-        sns.barplot(
-            x='score',
-            y='system',
-            hue=docs,
-            hue_order=hue_order,
-            data=g,
-            ax=ax,
-        )
+    ax.set_xlabel('Score ({})'.format(df['method'].unique().item()))
+    ax.set_ylabel('System prompt')
+    ax.set_xlim(0, 1)
+    ax.grid(visible=True, axis='x', alpha=0.5, linestyle='dotted')
 
-        ax.set_xlabel(f'Score ({m})')
-        ax.set_ylabel('System prompt')
-        ax.set_xlim(args.lowest_score, args.highest_score)
-        ax.grid(visible=True, axis='x', alpha=0.5, linestyle='dotted')
-        ax.legend().remove()
-        ax.xaxis.set_major_locator(MultipleLocator(base=0.1))
-        if i == 1:
-            fig.legend(loc='outside upper center')
-        if i < groups.ngroups:
-            ax.xaxis.set_major_formatter(NullFormatter())
+    ax.legend().remove()
+    fig = ax.get_figure()
+    fig.legend(loc='outside upper center', fontsize='x-small')
 
     plt.savefig(args.output, bbox_inches='tight')
