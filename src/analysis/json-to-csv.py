@@ -3,11 +3,10 @@ import csv
 import json
 import functools as ft
 from typing import Union
-from pathlib import Path
 from argparse import ArgumentParser
 from multiprocessing import Pool, Queue
 
-from mylib import Logger, ResponseJudgement
+from mylib import Logger, Experiment, ResponseJudgement
 
 #
 #
@@ -24,20 +23,6 @@ def _(element: Union[str, int]):
 #
 #
 #
-class ScoreHandler:
-    def __init__(self, method):
-        self.method = method
-
-    def __call__(self, judgements):
-        for j in judgements:
-            response = ResponseJudgement(**j)
-            if response.method == self.method:
-                return response.score
-
-        raise ValueError(f'Unknown method: {self.method}')
-#
-#
-#
 def parse(collection):
     for (k, v) in collection.items():
         try:
@@ -48,15 +33,15 @@ def parse(collection):
 
 def func(incoming, outgoing, args):
     prompts = (
-        # 'system',
+        'system',
         'user',
     )
 
     while True:
         result = incoming.get()
-        # Logger.info(result)
-
         data = json.loads(result)
+        Logger.info(Experiment.stringify(data))
+
         if args.name_length is not None:
             for i in prompts:
                 data[i] = data[i][:args.name_length]
