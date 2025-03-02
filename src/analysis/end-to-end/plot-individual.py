@@ -23,7 +23,7 @@ def func(queue, args):
         )
 
         ax.set_xlabel('Score ({})'.format(df['method'].unique().item()))
-        ax.set_ylabel('System prompt sample ({args.system})')
+        ax.set_ylabel(f'Sample run (system prompt {system})')
         ax.set_xlim(0, 1)
         ax.grid(visible=True, axis='x', alpha=0.5, linestyle='dotted')
 
