@@ -1,6 +1,7 @@
 import sys
 import csv
 import string
+import itertools as it
 from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, fields
 from multiprocessing import Pool, Queue
@@ -20,16 +21,15 @@ class GroupKey:
 def func(incoming, outgoing, args):
     assert args.samples <= len(string.ascii_uppercase)
     letters = string.ascii_uppercase[:args.samples]
+    seeds = it.repeat(None) if args.seed is None else it.count(args.seed)
 
     while True:
         (group, df) = incoming.get()
         Logger.info(group)
 
-        for l in letters:
-            if args.seed is not None:
-                args.seed += 1
+        for (l, s) in zip(letters, seeds):
             records = (df
-                       .sample(frac=1, random_state=args.seed)
+                       .sample(frac=1, random_state=s)
                        .drop_duplicates(subset='user')
                        .assign(sample=l)
                        .to_dict(orient='records'))
