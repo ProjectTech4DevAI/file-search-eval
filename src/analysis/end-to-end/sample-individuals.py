@@ -55,7 +55,7 @@ if __name__ == '__main__':
         by = [ x.name for x in fields(GroupKey) ]
         df = pd.read_csv(sys.stdin)
         jobs = 0
-        for (i, g) in df.groupby(by, sort=False):
+        for (i, g) in df.groupby(by):
             key = GroupKey(*i)
             outgoing.put((key, g))
             jobs += 1
