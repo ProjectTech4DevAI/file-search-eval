@@ -2,6 +2,7 @@ import sys
 import json
 import time
 import operator as op
+from uuid import uuid4
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, asdict
@@ -256,7 +257,7 @@ class OpenAIResources:
 #
 #
 #
-def func(incoming, outgoing, args):
+def func(incoming, outgoing, response_id, args):
     user = 'user'
     client = OpenAI()
 
@@ -282,6 +283,7 @@ def func(incoming, outgoing, args):
             assistant_id=job.resource.assistant,
         )
         t_end = time.perf_counter()
+        latency = t_end - t_start
 
         if run.status == 'completed':
             response = client.beta.threads.messages.list(
@@ -292,7 +294,12 @@ def func(incoming, outgoing, args):
         else:
             Logger.error('%s %s', job.config, run)
             result = ''
-        result = ExperimentResponse(result, job.model, t_end - t_start)
+        result = ExperimentResponse(
+            message=result,
+            model=job.model,
+            latency=latency,
+            response_id=response_id,
+        )
 
         #
         # Clean up
@@ -329,6 +336,7 @@ if __name__ == '__main__':
     initargs = (
         outgoing,
         incoming,
+        str(uuid4()),
         args,
     )
 
