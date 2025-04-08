@@ -239,12 +239,12 @@ appends to a given line -- information is never overwritten.
 ```python
 {
   # ADDED DURING EXPERIMENT SETUP PHASE
-  "system": str,          # system prompt: basename /data/prompts/system/file-n
-  "user": str,            # system prompt: basename /data/prompts/user/file-n
-  "docs": str,            # document set: (/data/documents/)method_1/instance_1
+  "system": str,          # system prompt: basename /data/prompts/system/system-file-n
+  "user": str,            # system prompt: basename /data/prompts/user/user-file-n
+  "docs": str,            # document set: (/data/documents/)method_n/instance_n
   "sequence": int,        # response iteration
 
-  # ADDED DURING LLM PROMPTING SETUP PHASE
+  # ADDED DURING LLM PROMPTING PHASE
   "response": [           # see mylib/_experiment.py::ExperimentResponse
     {
        "message": str,    # LLM response
@@ -255,9 +255,9 @@ appends to a given line -- information is never overwritten.
     }
   ],
 
-  # ADDED DURING JUDGEMENT SETUP PHASE
+  # ADDED DURING JUDGEMENT PHASE
   "comparison": int,      # comparison iteration
-  "reference": str,       # ground truth: basename /data/ground-truth/user-1/file-1
+  "reference": str,       # ground truth: basename /data/ground-truth/user-file-n/file-n
   "judgement": [
     {
        "method": str,     # Judgement platform
@@ -267,3 +267,8 @@ appends to a given line -- information is never overwritten.
   ]
 }
 ```
+
+The `responses.jsonl` file mentioned earlier will include material
+from the "experiment setup phase" and "LLM prompting phase". The
+`evaluations.jsonl` will include that, along with material from
+"judgement phase".
