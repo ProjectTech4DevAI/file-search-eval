@@ -211,16 +211,18 @@ First convert the JSONL into CSV:
 
 ```bash
 tmp=`mktemp`
-python src/analysis/json-to-csv.py \
-    --name-length 5 \
-    --method gpt-4o-2024-08-06:custom \
-    < $evaluations.jsonl \
-    > $tmp
+python src/analysis/json-to-csv.py < $evaluations.jsonl > $tmp
 ```
 
-The options provided to `json-to-csv.py` shorten prompt names to five
-characters, and focus JSON filtering to the OpenAI
-judgements. Performance plots can be built using:
+It is sometimes convenient to shorten the names of system and user
+prompts. To do so using this script add the `--name-length` option:
+
+```bash
+python src/analysis/json-to-csv.py ... --name-length 5 ...
+```
+
+This will shorten names to their first five characters. Performance
+plots can be built using:
 
 ```bash
 python src/analysis/plot-scores.py --output scores.png < $tmp
