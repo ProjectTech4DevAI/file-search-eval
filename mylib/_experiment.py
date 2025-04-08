@@ -1,4 +1,5 @@
 import time
+import math
 from uuid import uuid4
 from typing import Any
 from pathlib import Path
@@ -29,7 +30,7 @@ class Experiment:
 class ExperimentResponse:
     message: str
     model: str
-    latency: float # latency in seconds
+    latency: float = math.nan # latency in seconds
     response_id: str = field(default_factory=lambda: str(uuid4()))
     date: str = field(default_factory=lambda: time.strftime('%c'))
 
