@@ -99,7 +99,13 @@ Responses that are deemed to be "correct" should be stored as follows:
 
 Where `user-file-n` is the basename of the user prompt, and `file-n`
 is an arbitrary file name. It is imperative that the `user-file-n`
-names be present in the `/data/prompts/user`.
+names be present in `/data/prompts/user`. More formally
+
+```bash
+$(for i in /data/ground-truth/*; do test -e /data/prompts/`basename $i` || exit 1; done); echo $?
+```
+
+should print 0 if things are correct, 1 otherwise.
 
 ## Run
 
@@ -130,10 +136,7 @@ The entire process can be run from `bin/run-prompts.sh` as
 follows. Assuming your environment is setup:
 
 ```bash
-./bin/run-prompts.sh \
-     -p /data/prompts \
-     -d /data/documents \
-     -g /data/ground-truth > responses.jsonl
+./bin/run-prompts.sh -p /data/prompts -d /data/documents > responses.jsonl
 ```
 
 This will produce `responses.jsonl`, a JSONL file detailing each
@@ -141,11 +144,31 @@ prompt and the LLM's response. See `./bin/run-prompts.sh -h` for
 documentation and other options, and to get a sense for which Python
 scripts within this repository are doing the work.
 
+#### When not all user prompts have ground truth
+
+One option to keep in mind is `-g`, which points the response
+generator at your ground truth directory:
+
+```bash
+./bin/run-prompts.sh ... -g /data/ground-truth ...
+```
+
+Providing this option steers the generator to only consider prompts
+that have corresponding ground truth. User prompts that do not have
+ground truth are ignored and will not have a response in the
+output. Providing this option can help to make response generation
+more efficient in cases where the ratio of ground truth to user
+prompts is low, and the primary objective is evaluation.
+
+The evaluation phase gracefully ignores responses without ground
+truth, so the decision to use `-g` is purely about response generation
+efficiency.
+
 ### Obtain LLM judgements to responses
 
 Once responses have been generated, they can be judged using an
 LLM. This process is taken care of by Python scripts in
-`src/evaluate`. The first step in evaluation is amend each response
+`src/evaluate`. The first step in evaluation is to amend each response
 (each line in the response JSONL file) with its ground truth. Once
 that is complete, frameworks are engaged that judge the response.
 
