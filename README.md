@@ -185,7 +185,7 @@ There are currently two frameworks used for judgement:
 This process can be run from `bin/run-evals.sh` as follows:
 
 ```bash
-./bin/run-evals.sh -g /data/ground-truth < responses.jsonl > evaluations.jsonl
+./bin/run-evals.sh -u /data/prompts/user -g /data/ground-truth < responses.jsonl > evaluations.jsonl
 ```
 
 This will produce `evaluations.jsonl`, a JSONL file that is a super set
