@@ -99,7 +99,13 @@ Responses that are deemed to be "correct" should be stored as follows:
 
 Where `user-file-n` is the basename of the user prompt, and `file-n`
 is an arbitrary file name. It is imperative that the `user-file-n`
-names be present in the `/data/prompts/user`.
+names be present in `/data/prompts/user`. More formally
+
+```bash
+$(for i in /data/ground-truth/*; do test -e /data/prompts/`basename $i` || exit 1; done); echo $?
+```
+
+should print 0 if things are correct, 1 otherwise.
 
 ## Run
 
@@ -130,10 +136,7 @@ The entire process can be run from `bin/run-prompts.sh` as
 follows. Assuming your environment is setup:
 
 ```bash
-./bin/run-prompts.sh \
-     -p /data/prompts \
-     -d /data/documents \
-     -g /data/ground-truth > responses.jsonl
+./bin/run-prompts.sh -p /data/prompts -d /data/documents > responses.jsonl
 ```
 
 This will produce `responses.jsonl`, a JSONL file detailing each
@@ -141,11 +144,31 @@ prompt and the LLM's response. See `./bin/run-prompts.sh -h` for
 documentation and other options, and to get a sense for which Python
 scripts within this repository are doing the work.
 
+#### When not all user prompts have ground truth
+
+One option to keep in mind is `-g`, which points the response
+generator at your ground truth directory:
+
+```bash
+./bin/run-prompts.sh ... -g /data/ground-truth ...
+```
+
+Providing this option steers the generator to only consider prompts
+that have corresponding ground truth. User prompts that do not have
+ground truth are ignored and will not have a response in the
+output. Providing this option can help to make response generation
+more efficient in cases where the ratio of ground truth to user
+prompts is low, and the primary objective is evaluation.
+
+The evaluation phase gracefully ignores responses without ground
+truth, so the decision to use `-g` is purely about response generation
+efficiency.
+
 ### Obtain LLM judgements to responses
 
 Once responses have been generated, they can be judged using an
 LLM. This process is taken care of by Python scripts in
-`src/evaluate`. The first step in evaluation is amend each response
+`src/evaluate`. The first step in evaluation is to amend each response
 (each line in the response JSONL file) with its ground truth. Once
 that is complete, frameworks are engaged that judge the response.
 
@@ -162,7 +185,7 @@ There are currently two frameworks used for judgement:
 This process can be run from `bin/run-evals.sh` as follows:
 
 ```bash
-./bin/run-evals.sh -g /data/ground-truth < responses.jsonl > evaluations.jsonl
+./bin/run-evals.sh -u /data/prompts/user -g /data/ground-truth < responses.jsonl > evaluations.jsonl
 ```
 
 This will produce `evaluations.jsonl`, a JSONL file that is a super set
@@ -188,16 +211,18 @@ First convert the JSONL into CSV:
 
 ```bash
 tmp=`mktemp`
-python src/analysis/json-to-csv.py \
-    --name-length 5 \
-    --method gpt-4o-2024-08-06:custom \
-    < $evaluations.jsonl \
-    > $tmp
+python src/analysis/json-to-csv.py < $evaluations.jsonl > $tmp
 ```
 
-The options provided to `json-to-csv.py` shorten prompt names to five
-characters, and focus JSON filtering to the OpenAI
-judgements. Performance plots can be built using:
+It is sometimes convenient to shorten the names of system and user
+prompts. To do so using this script add the `--name-length` option:
+
+```bash
+python src/analysis/json-to-csv.py ... --name-length 5 ...
+```
+
+This will shorten names to their first five characters. Performance
+plots can be built using:
 
 ```bash
 python src/analysis/plot-scores.py --output scores.png < $tmp
@@ -216,12 +241,12 @@ appends to a given line -- information is never overwritten.
 ```python
 {
   # ADDED DURING EXPERIMENT SETUP PHASE
-  "system": str,          # system prompt: basename /data/prompts/system/file-n
-  "user": str,            # system prompt: basename /data/prompts/user/file-n
-  "docs": str,            # document set: (/data/documents/)method_1/instance_1
+  "system": str,          # system prompt: basename /data/prompts/system/system-file-n
+  "user": str,            # system prompt: basename /data/prompts/user/user-file-n
+  "docs": str,            # document set: (/data/documents/)method_n/instance_n
   "sequence": int,        # response iteration
 
-  # ADDED DURING LLM PROMPTING SETUP PHASE
+  # ADDED DURING LLM PROMPTING PHASE
   "response": [           # see mylib/_experiment.py::ExperimentResponse
     {
        "message": str,    # LLM response
@@ -232,9 +257,9 @@ appends to a given line -- information is never overwritten.
     }
   ],
 
-  # ADDED DURING JUDGEMENT SETUP PHASE
+  # ADDED DURING JUDGEMENT PHASE
   "comparison": int,      # comparison iteration
-  "reference": str,       # ground truth: basename /data/ground-truth/user-1/file-1
+  "reference": str,       # ground truth: basename /data/ground-truth/user-file-n/file-n
   "judgement": [
     {
        "method": str,     # Judgement platform
@@ -244,3 +269,8 @@ appends to a given line -- information is never overwritten.
   ]
 }
 ```
+
+The `responses.jsonl` file mentioned earlier will include material
+from the "experiment setup phase" and "LLM prompting phase". The
+`evaluations.jsonl` will include that, along with material from
+"judgement phase".

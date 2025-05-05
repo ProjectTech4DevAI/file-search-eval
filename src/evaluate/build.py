@@ -40,7 +40,7 @@ def func(incoming, outgoing, args):
                 c.update(r)
                 outgoing.put(c)
         except FileNotFoundError as err:
-            Logger.error(err)
+            Logger.error('Ground truth not found: %s', err)
         finally:
             outgoing.put(None)
 
