@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
+from matplotlib.ticker import MultipleLocator
 
 from mylib import Logger
 
@@ -43,6 +44,15 @@ if __name__ == '__main__':
         ax.set_ylabel('System prompt')
         ax.set_xlim(0, 1)
         ax.grid(visible=True, axis='x', alpha=0.5, linestyle='dotted')
+        ax.xaxis.set_major_locator(MultipleLocator(base=0.1))
+        ax.set_title(
+            label=m,
+            loc='right',
+            fontdict={
+                'fontsize': 'small',
+                'fontweight': 'bold',
+            },
+        )
 
         ax.legend().remove()
         fig = ax.get_figure()
