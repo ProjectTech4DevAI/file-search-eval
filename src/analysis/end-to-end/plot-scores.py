@@ -45,7 +45,7 @@ if __name__ == '__main__':
             ax=ax,
         )
 
-        ax.set_xlabel('Score ({})'.format(m))
+        ax.set_xlabel('Score')
         ax.set_ylabel('System prompt')
         ax.set_xlim(0, 1)
         ax.grid(visible=True, axis='x', alpha=0.5, linestyle='dotted')
