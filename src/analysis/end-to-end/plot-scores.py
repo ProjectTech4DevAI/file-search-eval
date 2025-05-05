@@ -27,15 +27,20 @@ if __name__ == '__main__':
 
     df = pd.read_csv(sys.stdin)
     methods = df.groupby('method', sort=False)
+    hue_order = sorted(df['docs'].unique())
 
     (fig, axes) = plt.subplots(nrows=methods.ngroups, sharex=True)
 
-    for (ax, (m, g)) in zip(gather(axes), methods):
+    for (i, (ax, (m, g))) in enumerate(zip(gather(axes), methods)):
         Logger.info(m)
+
+        legend = not i
         sns.barplot(
             x='score',
             y='system',
             hue='docs',
+            hue_order=hue_order,
+            legend=legend,
             data=g,
             ax=ax,
         )
@@ -54,8 +59,9 @@ if __name__ == '__main__':
             },
         )
 
-        ax.legend().remove()
-        fig = ax.get_figure()
-        fig.legend(loc='outside upper center', fontsize='x-small')
+        if legend:
+            ax.legend().remove()
+            fig = ax.get_figure()
+            fig.legend(loc='outside upper center', fontsize='x-small')
 
     plt.savefig(args.output, bbox_inches='tight')
