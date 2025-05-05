@@ -2,18 +2,22 @@ import sys
 import functools as ft
 from pathlib import Path
 from argparse import ArgumentParser
+from collections.abc import Iterable
 
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
-@ft.singledispatch
-def gather(ax):
-    yield from ax
+from mylib import Logger
 
+@ft.singledispatch
 def gather(ax: Axes):
     yield ax
+
+@gather.register
+def _(ax: Iterable):
+    yield from ax
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
@@ -26,6 +30,7 @@ if __name__ == '__main__':
     (fig, axes) = plt.subplots(nrows=methods.ngroups, sharex=True)
 
     for (ax, (m, g)) in zip(gather(axes), methods):
+        Logger.info(m)
         sns.barplot(
             x='score',
             y='system',
