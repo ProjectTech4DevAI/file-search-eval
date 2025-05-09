@@ -13,7 +13,7 @@ while getopts 'n:p:d:g:m:e:ch' option; do
 	p) _prompts=$OPTARG ;;
 	d) _documents=$OPTARG ;;
 	g) _gt=$OPTARG ;;
-	m) _models=( ${_models[@]} $OPTARG ) ;;
+	m) _models=( ${_models[@]} --model $OPTARG ) ;;
 	e) _extra=( ${_extra[@]} --extra-info $OPTARG ) ;;
         h)
             cat <<EOF
@@ -36,10 +36,9 @@ EOF
     esac
 done
 
-if [ ! $_models ]; then
-    _models=( $_default_model )
+if [ ${#_models[@]} -eq 0 ]; then
+    _models=( --model $_default_model )
 fi
-models=`sed -e's/ / --model /g' <<< ${_models[@]}`
 
 python $ROOT/src/prompt/build.py ${_extra[@]} \
        --user-prompts $_prompts/user \
@@ -51,7 +50,6 @@ python $ROOT/src/prompt/build.py ${_extra[@]} \
     else
 	cat
     fi | \
-	python $ROOT/src/prompt/run.py \
-	       --model $models \
+	python $ROOT/src/prompt/run.py ${_models[@]} \
 	       --document-root $_documents \
 	       --prompt-root $_prompts
