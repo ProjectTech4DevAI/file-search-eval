@@ -1,5 +1,6 @@
 import sys
 import json
+import math
 import time
 import operator as op
 import itertools as it
@@ -9,6 +10,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, asdict
 from multiprocessing import Pool, Queue
 
+import pandas as pd
 from openai import OpenAI, OpenAIError, NotFoundError
 
 from mylib import Logger, ExperimentResponse
@@ -250,6 +252,18 @@ class OpenAIResources:
 #
 #
 class ThreadRunner:
+    @staticmethod
+    def parse_wait_time(err):
+        if err.code == 'rate_limit_exceeded':
+            for i in err.message.split('. '):
+                if i.startswith('Please try again in'):
+                    (*_, wait) = i.split()
+                    return (pd
+                            .to_timedelta(wait)
+                            .total_seconds())
+
+        raise TypeError(err.code)
+
     def __init__(self, client, response_id):
         self.client = client
         self.response_id = response_id
@@ -274,6 +288,16 @@ class ThreadRunner:
                     thread_id=thread.id,
                     run_id=run.id,
                 )
+
+            try:
+                rest = self.parse_wait_time(run.last_error)
+            except TypeError:
+                rest = None
+            if rest is not None:
+                rest = math.ceil(rest)
+                Logger.warning('Sleeping %ds', rest)
+                time.sleep(rest)
+
             Logger.error('%d / %s / %s', i, job.config, run)
 
         latency = t_end - t_start
