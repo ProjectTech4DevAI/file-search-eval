@@ -41,19 +41,10 @@ def vs_ls(vector_store_id, client):
             break
         kwargs['after'] = page.last_id
 
-#
-#
-#
-class PromptReader:
-    def __init__(self, config, root):
-        self.config = config
-        self.root = root
-
-    def __call__(self, ptype):
-        return (self
-                .root
-                .joinpath(ptype, self.config[ptype])
-                .read_text())
+def scanp(config, root, ptype):
+    return (root
+            .joinpath(ptype, config[ptype])
+            .read_text())
 
 #
 #
@@ -181,7 +172,7 @@ class AssistantCreator(ResourceCreator):
 
     def create(self, config, **kwargs):
         (model, vector_store_id) = map(kwargs.get, self._kwargs)
-        reader = PromptReader(config, self.args.prompt_root)
+        instructions = scanp(config, self.args.prompt_root, 'system')
 
         assistant = self.client.beta.assistants.create(
             model=model,
@@ -270,7 +261,7 @@ def func(incoming, outgoing, response_id, args):
         #
 
         thread = client.beta.threads.create()
-        reader = PromptReader(job.config, args.prompt_root)
+        content = scanp(job.config, args.prompt_root, user)
         message = client.beta.threads.messages.create(
             thread.id,
             role=user,
