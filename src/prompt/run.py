@@ -2,13 +2,14 @@ import sys
 import json
 import time
 import operator as op
+import itertools as it
 from uuid import uuid4
 from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, asdict
 from multiprocessing import Pool, Queue
 
-from openai import OpenAI, NotFoundError
+from openai import OpenAI, OpenAIError, NotFoundError
 
 from mylib import Logger, ExperimentResponse
 
@@ -176,7 +177,7 @@ class AssistantCreator(ResourceCreator):
 
         assistant = self.client.beta.assistants.create(
             model=model,
-            instructions=reader('system'),
+            instructions=instructions,
             temperature=1e-4,
             tools=[{
                 'type': 'file_search',
@@ -248,9 +249,54 @@ class OpenAIResources:
 #
 #
 #
+class ThreadRunner:
+    def __init__(self, client, response_id):
+        self.client = client
+        self.response_id = response_id
+
+    def __call__(self, job, thread):
+        for i in it.count():
+            try:
+                t_start = time.perf_counter()
+                run = self.client.beta.threads.runs.create_and_poll(
+                    thread_id=thread.id,
+                    assistant_id=job.resource.assistant,
+                )
+                t_end = time.perf_counter()
+            except OpenAIError as err:
+                Logger.critical(err)
+                continue
+
+            if run.status == 'completed':
+                break
+            if run.status == 'is_expired':
+                self.client.beta.threads.runs.cancel(
+                    thread_id=thread.id,
+                    run_id=run.id,
+                )
+            Logger.error('%d / %s / %s', i, job.config, run)
+
+        latency = t_end - t_start
+        response = self.client.beta.threads.messages.list(
+            thread_id=thread.id,
+            run_id=run.id,
+        )
+        message = response.data[0].content[0].text.value
+
+        return ExperimentResponse(
+            message=message,
+            model=job.model,
+            latency=latency,
+            response_id=self.response_id,
+        )
+
+#
+#
+#
 def func(incoming, outgoing, response_id, args):
     user = 'user'
     client = OpenAI()
+    runner = ThreadRunner(client, response_id)
 
     while True:
         job = incoming.get()
@@ -265,32 +311,9 @@ def func(incoming, outgoing, response_id, args):
         message = client.beta.threads.messages.create(
             thread.id,
             role=user,
-            content=reader(user),
+            content=content,
         )
-
-        t_start = time.perf_counter()
-        run = client.beta.threads.runs.create_and_poll(
-            thread_id=thread.id,
-            assistant_id=job.resource.assistant,
-        )
-        t_end = time.perf_counter()
-        latency = t_end - t_start
-
-        if run.status == 'completed':
-            response = client.beta.threads.messages.list(
-                thread_id=thread.id,
-                run_id=run.id,
-            )
-            result = response.data[0].content[0].text.value
-        else:
-            Logger.error('%s %s', job.config, run)
-            result = ''
-        result = ExperimentResponse(
-            message=result,
-            model=job.model,
-            latency=latency,
-            response_id=response_id,
-        )
+        result = runner(job, thread)
 
         #
         # Clean up
