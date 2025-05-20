@@ -35,7 +35,7 @@ class Job:
 def vs_ls(vector_store_id, client):
     kwargs = {}
     while True:
-        page = client.beta.vector_stores.files.list(
+        page = client.vector_stores.files.list(
             vector_store_id=vector_store_id,
             **kwargs,
         )
@@ -92,7 +92,7 @@ class VectorStoreCleaner(ResourceCleaner):
     def clean(self, client):
         for i in vs_ls(self.resource, client):
             client.files.delete(i.id)
-        client.beta.vector_stores.delete(self.resource)
+        client.vector_stores.delete(self.resource)
 
 #
 #
@@ -125,7 +125,7 @@ class VectorStoreCreator(ResourceCreator):
 
     def create(self, config, **kwargs):
         documents = self.args.document_root.joinpath(config['docs'])
-        vector_store = self.client.beta.vector_stores.create()
+        vector_store = self.client.vector_stores.create()
 
         for paths in self.ls(documents, self.args.upload_batch_size):
             Logger.info('Uploading %d', len(paths))
