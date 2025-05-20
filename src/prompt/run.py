@@ -13,7 +13,7 @@ from multiprocessing import Pool, Queue
 import pandas as pd
 from openai import OpenAI, OpenAIError, NotFoundError
 
-from mylib import Logger, ExperimentResponse
+from mylib import Logger, ExperimentResponse, FileIterator
 
 #
 #
@@ -110,24 +110,15 @@ class ResourceCreator:
         raise NotImplementedError()
 
 class VectorStoreCreator(ResourceCreator):
-    @staticmethod
-    def ls(root, limit):
-        batch = []
-
-        for i in root.rglob('*.md'):
-            batch.append(i)
-            if len(batch) >= limit:
-                yield batch
-                batch = []
-
-        if batch:
-            yield batch
+    def __init__(self, client, args):
+        super().__init__(client, args)
+        self.ls = FileIterator(self.args.upload_batch_size)
 
     def create(self, config, **kwargs):
         documents = self.args.document_root.joinpath(config['docs'])
         vector_store = self.client.vector_stores.create()
 
-        for paths in self.ls(documents, self.args.upload_batch_size):
+        for paths in self.ls(documents):
             Logger.info('Uploading %d', len(paths))
 
             files = [ x.open('rb') for x in paths ]
