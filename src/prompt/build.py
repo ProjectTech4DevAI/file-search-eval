@@ -64,7 +64,9 @@ if __name__ == '__main__':
     arguments.add_argument('--repetition', type=int, default=1)
     args = arguments.parse_args()
 
-    extra = dict(x.split(':') for x in args.extra_info)
+    extra = {}
+    if args.extra_info is not None:
+        extra.update(x.split(':') for x in args.extra_info)
     ignore = Excluder(args.exclude)
 
     for e in experiments(args):
