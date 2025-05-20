@@ -133,7 +133,6 @@ class VectorStoreCreator(ResourceCreator):
             files = [ x.open('rb') for x in paths ]
             file_batch = (self
                           .client
-                          .beta
                           .vector_stores
                           .file_batches.upload_and_poll(
                               vector_store_id=vector_store.id,
