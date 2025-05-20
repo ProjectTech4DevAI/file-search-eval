@@ -41,6 +41,9 @@ This repository automates OpenAI File Search testing.
 
 ### Prompts and documents
 
+This section gives details on expected document structure. An example
+can be found in `example-data`.
+
 #### Prompts
 
 Gather the prompts and documents that will supply the tests. User and
@@ -110,7 +113,11 @@ should print 0 if things are correct, 1 otherwise.
 ## Run
 
 There are two components to this repository: getting responses to
-queries, and evaluating those responses.
+queries, and evaluating those responses. Throughout this section,
+examples presented as Bash commands can actually be run, assuming your
+environemtn is setup correctly. That is, because they use documents
+contained in `example-data`, they will execute without any additional
+configuration.
 
 ### Get responses to queries
 
@@ -136,7 +143,7 @@ The entire process can be run from `bin/run-prompts.sh` as
 follows. Assuming your environment is setup:
 
 ```bash
-./bin/run-prompts.sh -p /data/prompts -d /data/documents > responses.jsonl
+./bin/run-prompts.sh -p example-data/prompts -d example-data/documents > responses.jsonl
 ```
 
 This will produce `responses.jsonl`, a JSONL file detailing each
@@ -150,7 +157,7 @@ One option to keep in mind is `-g`, which points the response
 generator at your ground truth directory:
 
 ```bash
-./bin/run-prompts.sh ... -g /data/ground-truth ...
+./bin/run-prompts.sh ... -g example-data/ground-truth ...
 ```
 
 Providing this option steers the generator to only consider prompts
@@ -185,7 +192,7 @@ There are currently two frameworks used for judgement:
 This process can be run from `bin/run-evals.sh` as follows:
 
 ```bash
-./bin/run-evals.sh -u /data/prompts/user -g /data/ground-truth < responses.jsonl > evaluations.jsonl
+./bin/run-evals.sh -u example-data/prompts/user -g example-data/ground-truth < responses.jsonl > evaluations.jsonl
 ```
 
 This will produce `evaluations.jsonl`, a JSONL file that is a super set
