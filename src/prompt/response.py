@@ -210,26 +210,49 @@ class OpenAIResources:
 
                 yield Job(resource, model, config)
 
+MAX_LATENCY = 90  # seconds
+
+def now():
+    return time.strftime('%Y-%m-%d %H:%M:%S')
+
 def func(incoming, outgoing, session_id, args):
     import datetime
+    import concurrent.futures
     client = OpenAI()
     creator = ResponseCreator(client, args)
 
     while True:
         job = incoming.get()
-        Logger.info(job)
+        Logger.info('[%s] Received job | Config: %s | Model: %s', now(), job.config, job.model)
 
         question = scanp(job.config, args.prompt_root, 'user')
-        start = time.time()
 
-        response = creator.create(
-            job.config,
-            model=job.model,
-            vector_store=job.resource.vector_store,
-            question=question,
-        )
+        def generate_response():
+            return creator.create(
+                job.config,
+                model=job.model,
+                vector_store=job.resource.vector_store,
+                question=question,
+            )
 
-        latency = time.time() - start
+        try:
+            t_start = time.perf_counter()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(generate_response)
+                response = future.result(timeout=MAX_LATENCY)
+            t_end = time.perf_counter()
+        except concurrent.futures.TimeoutError:
+            Logger.error('[%s] Response generation timed out after %ds | Config: %s | Model: %s',
+                         now(), MAX_LATENCY, job.config, job.model)
+            continue
+        except Exception as e:
+            Logger.critical('[%s] Error during response generation: %s | Config: %s', now(), e, job.config)
+            continue
+
+        latency = t_end - t_start
+
+        Logger.info('[%s] Response generated | Latency: %.2fs | Model: %s | Response ID: %s',
+                    now(), latency, job.model, response.id)
 
         outgoing.put({
             "system": job.config["system"],
@@ -246,6 +269,7 @@ def func(incoming, outgoing, session_id, args):
                 }
             ]
         })
+
 
 if __name__ == '__main__':
     arguments = ArgumentParser()

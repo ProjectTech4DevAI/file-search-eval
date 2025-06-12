@@ -9,6 +9,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, asdict
 from multiprocessing import Pool, Queue
+import concurrent.futures
 
 import pandas as pd
 from openai import OpenAI, OpenAIError, NotFoundError
@@ -241,6 +242,19 @@ class OpenAIResources:
 #
 #
 #
+
+
+MAX_LATENCY = 90  # seconds, cap total time for each run
+
+def timeout_run(client, thread, assistant_id):
+    return client.beta.threads.runs.create_and_poll(
+        thread_id=thread.id,
+        assistant_id=assistant_id,
+    )
+
+def now():  # Utility for nicer timestamp logging
+    return time.strftime('%Y-%m-%d %H:%M:%S')
+
 class ThreadRunner:
     @staticmethod
     def parse_wait_time(err):
@@ -251,7 +265,6 @@ class ThreadRunner:
                     return (pd
                             .to_timedelta(wait)
                             .total_seconds())
-
         raise TypeError(err.code)
 
     def __init__(self, client, response_id):
@@ -262,14 +275,20 @@ class ThreadRunner:
         for i in it.count():
             try:
                 t_start = time.perf_counter()
-                run = self.client.beta.threads.runs.create_and_poll(
-                    thread_id=thread.id,
-                    assistant_id=job.resource.assistant,
-                )
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(timeout_run, self.client, thread, job.resource.assistant)
+                    run = future.result(timeout=MAX_LATENCY)
                 t_end = time.perf_counter()
+            except concurrent.futures.TimeoutError:
+                Logger.error('[%s] Run timed out after %ds | Config: %s | Assistant: %s',
+                             now(), MAX_LATENCY, job.config, job.resource.assistant)
+                return None
             except OpenAIError as err:
-                Logger.critical(err)
+                Logger.critical('[%s] OpenAIError: %s | Config: %s', now(), err, job.config)
                 continue
+
+            Logger.info('[%s] Run completed | Status: %s | Time: %.2fs | Model: %s | Config: %s | Run ID: %s',
+                        now(), run.status, t_end - t_start, job.model, job.config, run.id)
 
             if run.status == 'completed':
                 break
@@ -285,10 +304,12 @@ class ThreadRunner:
                 rest = None
             if rest is not None:
                 rest = math.ceil(rest)
-                Logger.warning('Sleeping %ds', rest)
+                Logger.warning('[%s] Rate limit hit. Sleeping %ds | Error: %s',
+                               now(), rest, run.last_error.message)
                 time.sleep(rest)
 
-            Logger.error('%d / %s / %s', i, job.config, run)
+            Logger.error('[%s] Retry %d | Config: %s | Run Status: %s',
+                         now(), i, job.config, run.status)
 
         latency = t_end - t_start
         response = self.client.beta.threads.messages.list(
@@ -303,7 +324,6 @@ class ThreadRunner:
             latency=latency,
             response_id=self.response_id,
         )
-
 #
 #
 #
