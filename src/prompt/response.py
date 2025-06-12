@@ -9,19 +9,15 @@ from pathlib import Path
 from argparse import ArgumentParser
 from dataclasses import dataclass, astuple, asdict
 from multiprocessing import Pool, Queue
-import concurrent.futures
 
 import pandas as pd
 from openai import OpenAI, OpenAIError, NotFoundError
 
 from mylib import Logger, ExperimentResponse, FileIterator
 
-#
-#
-#
 @dataclass(frozen=True)
 class Resource:
-    assistant: str
+    response: str
     vector_store: str
 
 @dataclass(frozen=True)
@@ -30,9 +26,6 @@ class Job:
     model: str
     config: dict
 
-#
-#
-#
 def vs_ls(vector_store_id, client):
     kwargs = {}
     while True:
@@ -50,9 +43,6 @@ def scanp(config, root, ptype):
             .joinpath(ptype, config[ptype])
             .read_text())
 
-#
-#
-#
 class ResourceCleaner:
     def __init__(self, resource):
         self.resource = resource
@@ -70,34 +60,16 @@ class ResourceCleaner:
     def clean(self, client):
         raise NotImplementedError()
 
-class MessageCleaner(ResourceCleaner):
-    def __init__(self, resource, thread):
-        super().__init__(resource)
-        self.thread = thread
-
-    def clean(self, client):
-        client.beta.threads.messages.delete(
-            message_id=self.resource,
-            thread_id=self.thread,
-        )
-
-class ThreadCleaner(ResourceCleaner):
-    def clean(self, client):
-        client.beta.threads.delete(self.resource)
-
-class AssistantCleaner(ResourceCleaner):
-    def clean(self, client):
-        client.beta.assistants.delete(self.resource)
-
 class VectorStoreCleaner(ResourceCleaner):
     def clean(self, client):
         for i in vs_ls(self.resource, client):
             client.files.delete(i.id)
         client.vector_stores.delete(self.resource)
 
-#
-#
-#
+class ResponseCleaner(ResourceCleaner):
+    def clean(self, client):
+        client.responses.delete(self.resource)
+
 class ResourceCreator:
     def __init__(self, client, args):
         self.client = client
@@ -158,37 +130,34 @@ class VectorStoreCreator(ResourceCreator):
                 ', '.join(map(str, paths.values())),
             ))
 
-class AssistantCreator(ResourceCreator):
+class ResponseCreator(ResourceCreator):
     _kwargs = (
         'model',
         'vector_store',
+        'question',
     )
 
     def create(self, config, **kwargs):
-        (model, vector_store_id) = map(kwargs.get, self._kwargs)
+        model, vector_store_id, question = map(kwargs.get, self._kwargs)
         instructions = scanp(config, self.args.prompt_root, 'system')
 
-        assistant = self.client.beta.assistants.create(
+        response = self.client.responses.create(
             model=model,
             instructions=instructions,
-            temperature=1e-4,
-            tools=[{
-                'type': 'file_search',
-            }],
-            tool_resources={
-                'file_search': {
-                    'vector_store_ids': [
-                        vector_store_id,
-                    ],
-                },
-            },
+            tools=[
+                {
+                    "type": "file_search",
+                    "vector_store_ids": [vector_store_id],
+                    "max_num_results": 20,
+                }
+            ],
+            temperature=0.1,
+            input=[{"role": "user", "content": question}],
+            include=["file_search_call.results"],
         )
 
-        return assistant
+        return response
 
-#
-#
-#
 @dataclass(frozen=True)
 class ResourceKey:
     docs: str
@@ -196,7 +165,7 @@ class ResourceKey:
 
 class OpenAIResources:
     _resources = (
-        (AssistantCreator, AssistantCleaner),
+        (ResponseCreator, ResponseCleaner),
         (VectorStoreCreator, VectorStoreCleaner),
     )
 
@@ -205,7 +174,7 @@ class OpenAIResources:
 
         self.client = OpenAI()
         self.resources = {}
-        (self.a_creator, self.v_creator) = (
+        (self.r_creator, self.v_creator) = (
             x(self.client, self.args) for (x, _) in self._resources
         )
 
@@ -224,150 +193,83 @@ class OpenAIResources:
         for line in fp:
             config = json.loads(line)
             docs = config['docs']
+            question = scanp(config, self.args.prompt_root, 'user')
             for model in self.args.model:
                 key = ResourceKey(docs, model)
                 resource = self.resources.get(key)
                 if resource is None:
                     vector_store = self.v_creator(config)
-                    assistant = self.a_creator(
+                    response = self.r_creator(
                         config,
                         model=model,
                         vector_store=vector_store,
+                        question=question,
                     )
-                    resource = Resource(assistant, vector_store)
+                    resource = Resource(response, vector_store)
                     self.resources[key] = resource
 
                 yield Job(resource, model, config)
 
-#
-#
-#
+MAX_LATENCY = 90  # seconds
 
-
-MAX_LATENCY = 90  # seconds, cap total time for each run
-
-def timeout_run(client, thread, assistant_id):
-    return client.beta.threads.runs.create_and_poll(
-        thread_id=thread.id,
-        assistant_id=assistant_id,
-    )
-
-def now():  # Utility for nicer timestamp logging
+def now():
     return time.strftime('%Y-%m-%d %H:%M:%S')
 
-class ThreadRunner:
-    @staticmethod
-    def parse_wait_time(err):
-        if err.code == 'rate_limit_exceeded':
-            for i in err.message.split('. '):
-                if i.startswith('Please try again in'):
-                    (*_, wait) = i.split()
-                    return (pd
-                            .to_timedelta(wait)
-                            .total_seconds())
-        raise TypeError(err.code)
-
-    def __init__(self, client, response_id):
-        self.client = client
-        self.response_id = response_id
-
-    def __call__(self, job, thread):
-        for i in it.count():
-            try:
-                t_start = time.perf_counter()
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(timeout_run, self.client, thread, job.resource.assistant)
-                    run = future.result(timeout=MAX_LATENCY)
-                t_end = time.perf_counter()
-            except concurrent.futures.TimeoutError:
-                Logger.error('[%s] Run timed out after %ds | Config: %s | Assistant: %s',
-                             now(), MAX_LATENCY, job.config, job.resource.assistant)
-                return None
-            except OpenAIError as err:
-                Logger.critical('[%s] OpenAIError: %s | Config: %s', now(), err, job.config)
-                continue
-
-            Logger.info('[%s] Run completed | Status: %s | Time: %.2fs | Model: %s | Config: %s | Run ID: %s',
-                        now(), run.status, t_end - t_start, job.model, job.config, run.id)
-
-            if run.status == 'completed':
-                break
-            if run.status == 'is_expired':
-                self.client.beta.threads.runs.cancel(
-                    thread_id=thread.id,
-                    run_id=run.id,
-                )
-
-            try:
-                rest = self.parse_wait_time(run.last_error)
-            except TypeError:
-                rest = None
-            if rest is not None:
-                rest = math.ceil(rest)
-                Logger.warning('[%s] Rate limit hit. Sleeping %ds | Error: %s',
-                               now(), rest, run.last_error.message)
-                time.sleep(rest)
-
-            Logger.error('[%s] Retry %d | Config: %s | Run Status: %s',
-                         now(), i, job.config, run.status)
-
-        latency = t_end - t_start
-        response = self.client.beta.threads.messages.list(
-            thread_id=thread.id,
-            run_id=run.id,
-        )
-        message = response.data[0].content[0].text.value
-
-        return ExperimentResponse(
-            message=message,
-            model=job.model,
-            latency=latency,
-            response_id=self.response_id,
-        )
-#
-#
-#
-def func(incoming, outgoing, response_id, args):
-    user = 'user'
+def func(incoming, outgoing, session_id, args):
+    import datetime
+    import concurrent.futures
     client = OpenAI()
-    runner = ThreadRunner(client, response_id)
+    creator = ResponseCreator(client, args)
 
     while True:
         job = incoming.get()
-        Logger.info(job)
+        Logger.info('[%s] Received job | Config: %s | Model: %s', now(), job.config, job.model)
 
-        #
-        # Send the prompt
-        #
+        question = scanp(job.config, args.prompt_root, 'user')
 
-        thread = client.beta.threads.create()
-        content = scanp(job.config, args.prompt_root, user)
-        message = client.beta.threads.messages.create(
-            thread.id,
-            role=user,
-            content=content,
-        )
-        result = runner(job, thread)
+        def generate_response():
+            return creator.create(
+                job.config,
+                model=job.model,
+                vector_store=job.resource.vector_store,
+                question=question,
+            )
 
-        #
-        # Clean up
-        #
+        try:
+            t_start = time.perf_counter()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(generate_response)
+                response = future.result(timeout=MAX_LATENCY)
+            t_end = time.perf_counter()
+        except concurrent.futures.TimeoutError:
+            Logger.error('[%s] Response generation timed out after %ds | Config: %s | Model: %s',
+                         now(), MAX_LATENCY, job.config, job.model)
+            continue
+        except Exception as e:
+            Logger.critical('[%s] Error during response generation: %s | Config: %s', now(), e, job.config)
+            continue
 
-        cleaners = (
-            MessageCleaner(message.id, thread.id),
-            ThreadCleaner(thread.id),
-        )
-        for c in cleaners:
-            c(client, args.cleanup_attempts)
+        latency = t_end - t_start
 
-        #
-        # Report the result
-        #
+        Logger.info('[%s] Response generated | Latency: %.2fs | Model: %s | Response ID: %s',
+                    now(), latency, job.model, response.id)
 
-        record = job.config.setdefault('response', [])
-        record.append(asdict(result))
+        outgoing.put({
+            "system": job.config["system"],
+            "user": job.config["user"],
+            "docs": job.config["docs"],
+            "sequence": job.config.get("sequence", 0),
+            "response": [
+                {
+                    "message": response.output_text,
+                    "model": job.model,
+                    "latency": latency,
+                    "response_id": response.id,
+                    "date": datetime.datetime.now().ctime()
+                }
+            ]
+        })
 
-        outgoing.put(job.config)
 
 if __name__ == '__main__':
     arguments = ArgumentParser()
@@ -382,8 +284,8 @@ if __name__ == '__main__':
     incoming = Queue()
     outgoing = Queue()
     initargs = (
-        outgoing,
         incoming,
+        outgoing,
         str(uuid4()),
         args,
     )
@@ -392,9 +294,9 @@ if __name__ == '__main__':
         with OpenAIResources(args) as resources:
             jobs = 0
             for i in resources(sys.stdin):
-                outgoing.put(i)
+                incoming.put(i)
                 jobs += 1
 
             for _ in range(jobs):
-                result = incoming.get()
+                result = outgoing.get()
                 print(json.dumps(result))
