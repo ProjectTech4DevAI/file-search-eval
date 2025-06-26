@@ -218,7 +218,7 @@ First convert the JSONL into CSV:
 
 ```bash
 tmp=`mktemp`
-python src/analysis/json-to-csv.py < $evaluations.jsonl > $tmp
+python src/analysis/json-to-csv.py < /path/to/evaluations.jsonl > $tmp
 ```
 
 It is sometimes convenient to shorten the names of system and user
@@ -232,9 +232,9 @@ This will shorten names to their first five characters. Performance
 plots can be built using:
 
 ```bash
-python src/analysis/plot-scores.py --output scores.png < $tmp
+python src/analysis/end-to-end/plot-scores.py --output scores.png < $tmp
 mkdir responses
-python src/analysis/plot-responses.py --output responses < $tmp
+python src/analysis/response-scores/plot-scores.py --output responses < $tmp
 rm $tmp
 ```
 
